@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_3_1.xsd" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_1.xsd" version="3.1">
+    <servlet>
+        <description>The servlet which deals with application setup and front-page requests</description>
+        <display-name>TamsatApplicationServlet</display-name>
+        <servlet-name>TamsatApplicationServlet</servlet-name>
+        <servlet-class>uk.org.tamsat.dataserver.TamsatApplicationServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <!-- <servlet> -->
+    <!-- <description>The servlet which deals with all admin tasks</description> -->
+    <!-- <display-name>TamsatAdminServlet</display-name> -->
+    <!-- <servlet-name>TamsatAdminServlet</servlet-name> -->
+    <!-- <servlet-class>uk.org.tamsat.dataserver.TamsatAdminServlet</servlet-class> -->
+    <!-- <load-on-startup>2</load-on-startup> -->
+    <!-- </servlet> -->
+    <servlet>
+        <description>The servlet which deals with serving data</description>
+        <display-name>TamsatDataSubsetServlet</display-name>
+        <servlet-name>TamsatDataSubsetServlet</servlet-name>
+        <servlet-class>uk.org.tamsat.dataserver.TamsatDataSubsetServlet</servlet-class>
+        <load-on-startup>3</load-on-startup>
+    </servlet>
+    <filter>
+        <filter-name>CORS</filter-name>
+        <filter-class>com.thetransactioncompany.cors.CORSFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <!-- TODO Is this required? -->
+        <filter-name>CORS</filter-name>
+        <servlet-name>TamsatDataSubsetServlet</servlet-name>
+    </filter-mapping>
+    <servlet-mapping>
+        <servlet-name>TamsatDataSubsetServlet</servlet-name>
+        <url-pattern>/data</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>TamsatDataSubsetServlet</servlet-name>
+        <url-pattern>/data/*</url-pattern>
+    </servlet-mapping>
+    <!-- <servlet-mapping> -->
+    <!-- <servlet-name>TamsatAdminServlet</servlet-name> -->
+    <!-- <url-pattern>/admin/*</url-pattern> -->
+    <!-- </servlet-mapping> -->
+    <welcome-file-list>
+        <welcome-file>index.html</welcome-file>
+    </welcome-file-list>
+
+    <security-constraint>
+        <web-resource-collection>
+            <web-resource-name>admin</web-resource-name>
+            <url-pattern>/admin/*</url-pattern>
+            <http-method>GET</http-method>
+            <http-method>POST</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>tamsat-admin</role-name>
+        </auth-constraint>
+        <user-data-constraint>
+            <transport-guarantee>NONE</transport-guarantee>
+        </user-data-constraint>
+    </security-constraint>
+    <login-config>
+        <auth-method>DIGEST</auth-method>
+        <realm-name>Login to administer TAMSAT data server</realm-name>
+    </login-config>
+
+    <!-- The following settings can be overridden by either changing this file in place (not recommended) or by defining a custom context in $CATALINA_BASE/conf/[enginename]/[hostname]/[webappname].xml Within this file, override the parameter with entries in a Context tag such as: -->
+
+    <!-- In these settings: -->
+    <!-- $HOME represents the home directory of the user running the webapp -->
+    <!-- $HOME is a special value - environment variables cannot be used -->
+    <context-param>
+        <!-- This specifies the location of the config files. -->
+        <param-name>TamsatConfigDir</param-name>
+        <param-value>$HOME/.tamsat</param-value>
+    </context-param>
+
+    <listener>
+        <!-- This performs the tasks we need doing - namely shutting down the EHCache and the EPSG database -->
+        <listener-class>uk.ac.rdg.resc.edal.wms.WmsContextListener</listener-class>
+    </listener>
+</web-app>
