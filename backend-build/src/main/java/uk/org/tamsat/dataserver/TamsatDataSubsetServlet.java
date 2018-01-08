@@ -41,6 +41,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -78,6 +80,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
 
     private Map<Integer, SubsetRequestParams> submittedJobs = new HashMap<>();
     private ExecutorService jobQueue;
+    private ScheduledExecutorService cleaner;
 
     private DataCatalogue tamsatCatalogue;
 
@@ -159,13 +162,14 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
                 Object obj = ois.readObject();
                 if (obj instanceof Map) {
                     submittedJobs = (Map<Integer, SubsetRequestParams>) obj;
-                    
+
                     /*
                      * Now run all of the jobs
                      */
                     for (Integer key : submittedJobs.keySet()) {
                         SubsetRequestParams subsetParams = submittedJobs.get(key);
-                        jobQueue.submit(new SubsetJob(subsetParams, tamsatCatalogue, dataDir, this));
+                        jobQueue.submit(
+                                new SubsetJob(subsetParams, tamsatCatalogue, dataDir, this));
                         submittedJobs.put(subsetParams.hashCode(), subsetParams);
                     }
                     saveSubmittedJobList();
@@ -208,8 +212,32 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
 
         /*
          * Set-up service to check completed jobs to see when they have been
-         * downloaded over 24 hours ago, or completed over 7 days ago
+         * downloaded more than 24 hours ago, or completed over 7 days ago (and
+         * not downloaded)
          */
+        cleaner = Executors.newScheduledThreadPool(1);
+        Runnable cleanupJob = new Runnable() {
+            @Override
+            public void run() {
+                List<FinishedJobState> expired = new ArrayList<>();
+                for (FinishedJobState job : finishedJobs) {
+                    if ((job.wasDownloaded()
+                            && (System.currentTimeMillis() - job.getDownloadedTime()) > 1000 * 60
+                                    * 60 * 24)
+                            || (System.currentTimeMillis() - job.getCompletedTime()) > 1000 * 60
+                                    * 60 * 24 * 7) {
+                        expired.add(job);
+                        File expiredFile = new File(dataDir, SubsetJob.FILE_PREFIX + job.getId());
+                        expiredFile.delete();
+                    }
+                }
+                finishedJobs.removeAll(expired);
+            }
+        };
+        /*
+         * Run the cleanup job every 15 minutes
+         */
+        cleaner.scheduleWithFixedDelay(cleanupJob, 15, 15, TimeUnit.MINUTES);
 
         log.debug("Data subset servlet started");
     }
@@ -378,10 +406,6 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
         finishedJobs.add(state);
         saveCompletedJobList();
         saveSubmittedJobList();
-
-        /*
-         * TODO Add task to remove old jobs at some point in the future.
-         */
     }
 
     /**
