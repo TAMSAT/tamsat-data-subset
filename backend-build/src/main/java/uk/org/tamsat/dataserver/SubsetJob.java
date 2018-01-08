@@ -299,7 +299,6 @@ public class SubsetJob implements Callable<Integer> {
                         weight *= 1.0
                                 - (footprint.getMaxY() - bbox.getMaxY()) / footprint.getHeight();
                     }
-                    log.debug("Weight of cell " + cell.getGridCoordinates() + ": " + weight);
                     ret.put(cell.getGridCoordinates(), weight);
                 }
             }
