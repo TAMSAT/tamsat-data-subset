@@ -30,14 +30,17 @@ package uk.org.tamsat.dataserver;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -46,14 +49,20 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.velocity.Template;
+import org.apache.velocity.VelocityContext;
+import org.apache.velocity.app.VelocityEngine;
+import org.joda.time.DateTime;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
 import uk.ac.rdg.resc.edal.dataset.Dataset;
-import uk.ac.rdg.resc.edal.dataset.GriddedDataset;
-import uk.ac.rdg.resc.edal.exceptions.EdalException;
-import uk.ac.rdg.resc.edal.wms.RequestParams;
+import uk.ac.rdg.resc.edal.domain.Extent;
+import uk.ac.rdg.resc.edal.domain.TemporalDomain;
+import uk.ac.rdg.resc.edal.util.GISUtils;
+import uk.ac.rdg.resc.edal.util.TimeUtils;
 import uk.org.tamsat.dataserver.SubsetJob.JobFinished;
 
 /**
@@ -62,22 +71,31 @@ import uk.org.tamsat.dataserver.SubsetJob.JobFinished;
  * @author Guy Griffiths
  */
 public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished {
+    private static final String COMPLETED_JOBLIST_FILENAME = "joblist-completed.dat";
+    private static final String SUBMITTED_JOBLIST_FILENAME = "joblist-submitted.dat";
+
     private static final long serialVersionUID = 1L;
 
-    private final List<Future<Integer>> runningJobs = new ArrayList<>();
+    private Map<Integer, SubsetRequestParams> submittedJobs = new HashMap<>();
     private ExecutorService jobQueue;
 
     private DataCatalogue tamsatCatalogue;
 
     private File dataDir;
-    
+
     private Map<Integer, FinishedJobState> ids2Jobs = new HashMap<>();
+    private Map<String, List<FinishedJobState>> email2Jobs = new HashMap<>();
+    private List<FinishedJobState> finishedJobs = new ArrayList<>();
+
+    private VelocityEngine velocityEngine;
 
     private static final Logger log = LoggerFactory.getLogger(TamsatDataSubsetServlet.class);
 
     @Override
+    @SuppressWarnings("unchecked")
     public void init(ServletConfig servletConfig) throws ServletException {
         super.init(servletConfig);
+
         /*
          * Retrieve the pre-loaded catalogue and wire it up
          */
@@ -117,14 +135,91 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
                 dataDir.mkdirs();
             }
         } else {
-            throw new ServletException("Config directory is badly defined.  This is a bug");
+            throw new ServletException(
+                    "Config directory is badly defined.  This is probably a bug, please report it to the system administrator.");
+        }
+
+        Object ve = servletConfig.getServletContext()
+                .getAttribute(TamsatApplicationServlet.CONTEXT_VELOCITY_ENGINE);
+        if (ve instanceof VelocityEngine) {
+            velocityEngine = (VelocityEngine) ve;
+        } else {
+            throw new ServletException(
+                    "Velocity template engine is badly defined.  This is probably a bug, please report it to the system administrator.");
         }
 
         /*
-         * Set-up service to regularly check the list of running jobs to see w
+         * If list of persisted running jobs exists, load it into memory and set
+         * jobs to run again
+         */
+        File persistedRunningJobs = new File(dataDir, SUBMITTED_JOBLIST_FILENAME);
+        if (persistedRunningJobs.exists()) {
+            try (FileInputStream fis = new FileInputStream(persistedRunningJobs);
+                    ObjectInputStream ois = new ObjectInputStream(fis)) {
+                Object obj = ois.readObject();
+                if (obj instanceof Map) {
+                    submittedJobs = (Map<Integer, SubsetRequestParams>) obj;
+                    
+                    /*
+                     * Now run all of the jobs
+                     */
+                    for (Integer key : submittedJobs.keySet()) {
+                        SubsetRequestParams subsetParams = submittedJobs.get(key);
+                        jobQueue.submit(new SubsetJob(subsetParams, tamsatCatalogue, dataDir, this));
+                        submittedJobs.put(subsetParams.hashCode(), subsetParams);
+                    }
+                    saveSubmittedJobList();
+                }
+            } catch (Throwable e) {
+                log.error(
+                        "Problem reading persisted job list.  Jobs running in previous sessions will need to be re-run manually",
+                        e);
+            }
+        }
+
+        /*
+         * If persisted job list exists, load it into memory
+         */
+        File persistedCompletedJobs = new File(dataDir, COMPLETED_JOBLIST_FILENAME);
+        if (persistedCompletedJobs.exists()) {
+            try (FileInputStream fis = new FileInputStream(persistedCompletedJobs);
+                    ObjectInputStream ois = new ObjectInputStream(fis)) {
+                Object obj = ois.readObject();
+                if (obj instanceof List) {
+                    finishedJobs = (List<FinishedJobState>) obj;
+                    /*
+                     * Now build the Maps of IDs 2 jobs and email 2 job lists
+                     * for easier retrieval
+                     */
+                    for (FinishedJobState job : finishedJobs) {
+                        ids2Jobs.put(job.getId(), job);
+                        if (!email2Jobs.containsKey(job.getEmail())) {
+                            email2Jobs.put(job.getEmail(), new ArrayList<>());
+                        }
+                        email2Jobs.get(job.getEmail()).add(job);
+                    }
+                }
+            } catch (Throwable e) {
+                log.error(
+                        "Problem reading persisted job list.  Jobs from previous sessions will not be available",
+                        e);
+            }
+        }
+
+        /*
+         * Set-up service to check completed jobs to see when they have been
+         * downloaded over 24 hours ago, or completed over 7 days ago
          */
 
         log.debug("Data subset servlet started");
+    }
+
+    @Override
+    public void destroy() {
+        super.destroy();
+        jobQueue.shutdown();
+        tamsatCatalogue.shutdown();
+        GISUtils.releaseEpsgDatabase();
     }
 
     @Override
@@ -139,26 +234,78 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
          * after they have been downloaded (say a day), so that multiple
          * downloads can be done if required.
          */
-        RequestParams params = new RequestParams(req.getParameterMap());
-        try {
-            int id = params.getMandatoryPositiveInt("ID");
+        TamsatRequestParams params = new TamsatRequestParams(req.getParameterMap());
+        String method = params.getString("REQUEST", null);
+        if (method == null) {
+            /*
+             * No parameters added, just show available subsets
+             */
+            String email = params.getString("EMAIL");
+
+            Template template = velocityEngine.getTemplate("templates/joblist.vm");
+            VelocityContext context = new VelocityContext();
+            context.put("email", email);
+            if (email != null) {
+                List<FinishedJobState> jobs = email2Jobs.get(email);
+                context.put("jobs", jobs);
+            }
+            try {
+                template.merge(context, resp.getWriter());
+            } catch (Exception e) {
+                log.error("Problem returning joblist", e);
+                throw new ServletException("Problem returning job list", e);
+            }
+        } else if (method.equalsIgnoreCase("GETTIMES")) {
+            /*
+             * This returns the available time range for the desired dataset
+             */
+            String datasetId = params.getMandatoryString("DATASET");
+            Dataset dataset = tamsatCatalogue.getDatasetFromId(datasetId);
+            Set<String> varIds = dataset.getVariableIds();
+            DateTime startTime = null;
+            DateTime endTime = null;
+            for (String varId : varIds) {
+                TemporalDomain tDomain = dataset.getVariableMetadata(varId).getTemporalDomain();
+                Extent<DateTime> tExtent = tDomain.getExtent();
+                if (startTime == null || tExtent.getLow().isBefore(startTime)) {
+                    startTime = tExtent.getLow();
+                }
+                if (endTime == null || tExtent.getHigh().isAfter(endTime)) {
+                    endTime = tExtent.getHigh();
+                }
+            }
+            JSONObject startEndTimes = new JSONObject();
+            startEndTimes.put("starttime", TimeUtils.dateTimeToISO8601(startTime));
+            startEndTimes.put("endtime", TimeUtils.dateTimeToISO8601(endTime));
+            resp.setContentType("application/json");
+            try {
+                resp.getWriter().write(startEndTimes.toString());
+            } catch (IOException e) {
+                log.error("Problem writing metadata to output stream", e);
+                throw new ServletException("Problem writing JSON to output stream", e);
+            }
+        } else if (method.equalsIgnoreCase("GETDATA")) {
+            /*
+             * Requests a data file from a previously completed job
+             */
+            int id = params.getMandatoryInt("ID");
             FinishedJobState finishedJobState = ids2Jobs.get(id);
-            if(finishedJobState == null) {
-                throw new ServletException("The ID " + id
-                        + " does not refer to an existing data file.  Perhaps you have already downloaded this data file?");
+            if (finishedJobState == null) {
+                throw new ServletException("The job ID " + id + " does not exist.");
             }
             File fileToServe = finishedJobState.getFileLocation();
             if (!fileToServe.exists()) {
                 throw new ServletException("The ID " + id
                         + " does not refer to an existing data file.  Perhaps you have already downloaded this data file?");
             }
-            
+
             /*
-             * TODO generate a more meaningful filename.
-             * 
-             * Or at least one which represents the type of data being returned.
+             * Now return the data, with appropriate filename and MIME type
              */
-            resp.setHeader("Content-Disposition", "inline; filename=" + "tamsat-subset.txt");
+            resp.setHeader("Content-Disposition",
+                    "inline; filename=" + finishedJobState.getOutputFilename());
+            resp.setContentType(finishedJobState.getOutputFilename().endsWith("csv") ? "text/csv"
+                    : "application/x-netcdf");
             try (FileInputStream is = new FileInputStream(fileToServe);
                     ServletOutputStream os = resp.getOutputStream()) {
                 int n;
@@ -167,44 +314,103 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
                     os.write(buffer, 0, n); // Don't allow any extra bytes to creep in, final write
                 }
             }
-        } catch (EdalException e) {
-            /*
-             * The ID parameter either doesn't exist, or is not an integer.
-             */
-            throw new ServletException("Must provide integer ID of job number to download", e);
+            finishedJobState.setDownloaded();
+
+            saveCompletedJobList();
         }
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        SubsetRequestParams subsetParams = new SubsetRequestParams(req);
+        SubsetRequestParams subsetParams;
+        try {
+            /*
+             * Parse required parameters. This will throw an exception if they
+             * are not present
+             */
+            subsetParams = new SubsetRequestParams(req);
 
-        /*
-         * Needs to get parameters:
-         * 
-         * region(s), time range, email address, subset/average
-         */
-        Dataset dataset = tamsatCatalogue.getDatasetFromId(subsetParams.getDatasetId());
-        if (!(dataset instanceof GriddedDataset)) {
-            throw new ServletException("Only gridded datasets may be subset");
+            /*
+             * Add the job to the queue
+             */
+            log.debug("Adding job " + subsetParams.hashCode() + " to the queue");
+            jobQueue.submit(new SubsetJob(subsetParams, tamsatCatalogue, dataDir, this));
+            submittedJobs.put(subsetParams.hashCode(), subsetParams);
+            saveSubmittedJobList();
+        } catch (Exception e) {
+            log.error("Problem parsing parameters and adding job", e);
+            throw new ServletException("Problem submitting subset job.", e);
         }
 
-        /*
-         * Add the job to the queue
-         */
-        log.debug("Adding job " + subsetParams.hashCode() + " to the queue");
-        Future<Integer> job = jobQueue
-                .submit(new SubsetJob(subsetParams, (GriddedDataset) dataset, dataDir, this));
-        runningJobs.add(job);
+        Template template = velocityEngine.getTemplate("templates/job_posted.vm");
+        VelocityContext context = new VelocityContext();
+        context.put("email", subsetParams.getEmail());
+        try {
+            template.merge(context, resp.getWriter());
+        } catch (Exception e) {
+            log.error("Problem returning page after job posted", e);
+            throw new ServletException("Problem returning page after job posted", e);
+        }
     }
 
     @Override
     public synchronized void jobFinished(FinishedJobState state) {
         /*
-         * This gets called once a job has finished.        
+         * Add job state to appropriate Maps for easy retrieval
          */
+        if (!email2Jobs.containsKey(state.getEmail())) {
+            email2Jobs.put(state.getEmail(), new ArrayList<>());
+        }
+        email2Jobs.get(state.getEmail()).add(state);
         ids2Jobs.put(state.getId(), state);
-        log.debug("Saving completed job "+state.getId());
+
+        /*
+         * Remove job from running job list
+         */
+        submittedJobs.remove(state.getId());
+
+        log.debug("Saving completed job " + state.getId());
+
+        /*
+         * Add job state to list of jobs and persist
+         */
+        finishedJobs.add(state);
+        saveCompletedJobList();
+        saveSubmittedJobList();
+
+        /*
+         * TODO Add task to remove old jobs at some point in the future.
+         */
+    }
+
+    /**
+     * Saves the list of finished jobs to disk
+     */
+    private synchronized void saveCompletedJobList() {
+        try (FileOutputStream fos = new FileOutputStream(
+                new File(dataDir, COMPLETED_JOBLIST_FILENAME));
+                ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            oos.writeObject(finishedJobs);
+            log.debug("Complted job list written to file");
+        } catch (IOException e) {
+            log.error(
+                    "Problem writing completed job list.  Persistence will not work across restarts");
+        }
+    }
+
+    /**
+     * Saves the list of submitted (but not completed) jobs to disk
+     */
+    private synchronized void saveSubmittedJobList() {
+        try (FileOutputStream fos = new FileOutputStream(
+                new File(dataDir, SUBMITTED_JOBLIST_FILENAME));
+                ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            oos.writeObject(submittedJobs);
+            log.debug("Running job list written to file");
+        } catch (IOException e) {
+            log.error(
+                    "Problem writing running job list.  Persistence will not work across restarts");
+        }
     }
 }

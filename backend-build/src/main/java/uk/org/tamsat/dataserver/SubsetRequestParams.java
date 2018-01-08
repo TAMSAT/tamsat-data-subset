@@ -28,6 +28,8 @@
 
 package uk.org.tamsat.dataserver;
 
+import java.io.Serializable;
+
 import javax.servlet.http.HttpServletRequest;
 
 import org.joda.time.DateTime;
@@ -35,11 +37,12 @@ import org.joda.time.chrono.ISOChronology;
 
 import uk.ac.rdg.resc.edal.domain.Extent;
 import uk.ac.rdg.resc.edal.geometry.BoundingBox;
-import uk.ac.rdg.resc.edal.util.GISUtils;
+import uk.ac.rdg.resc.edal.geometry.BoundingBoxImpl;
+import uk.ac.rdg.resc.edal.util.Extents;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
-import uk.ac.rdg.resc.edal.wms.RequestParams;
 
-public class SubsetRequestParams {
+public class SubsetRequestParams implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String datasetId;
     private final BoundingBox bbox;
     private final Extent<DateTime> timeRange;
@@ -47,12 +50,24 @@ public class SubsetRequestParams {
     private final String email;
 
     public SubsetRequestParams(HttpServletRequest req) {
-        RequestParams params = new RequestParams(req.getParameterMap());
+        TamsatRequestParams params = new TamsatRequestParams(req.getParameterMap());
         datasetId = params.getMandatoryString("DATASET");
-        bbox = GISUtils.parseBbox(params.getMandatoryString("BBOX"), true, "CRS:84");
-        timeRange = TimeUtils.getTimeRangeForString(params.getMandatoryString("TIME"),
-                ISOChronology.getInstanceUTC());
-        getNetcdf = params.getBoolean("NETCDF", false);
+        String datatype = params.getMandatoryString("DATATYPE");
+        getNetcdf = datatype.equalsIgnoreCase("netcdf");
+        if (datatype.equalsIgnoreCase("point")) {
+            double lon = params.getDouble("LON", 0f);
+            double lat = params.getDouble("LAT", 0f);
+            bbox = new BoundingBoxImpl(lon, lat, lon, lat);
+        } else {
+            double minLon = params.getDouble("MINLON", 0f);
+            double minLat = params.getDouble("MINLAT", 0f);
+            double maxLon = params.getDouble("MAXLON", 0f);
+            double maxLat = params.getDouble("MAXLAT", 0f);
+            bbox = new BoundingBoxImpl(minLon, minLat, maxLon, maxLat);
+        }
+        DateTime startTime = TimeUtils.iso8601ToDateTime(params.getMandatoryString("STARTTIME"), ISOChronology.getInstanceUTC());
+        DateTime endTime = TimeUtils.iso8601ToDateTime(params.getMandatoryString("ENDTIME"), ISOChronology.getInstanceUTC());
+        timeRange = Extents.newExtent(startTime, endTime);
         email = params.getMandatoryString("EMAIL");
     }
 
@@ -75,10 +90,10 @@ public class SubsetRequestParams {
     public String getEmail() {
         return email;
     }
-    
+
     @Override
     public String toString() {
-        return (getNetcdf ? "NetCDF: " : "CSV: ") +datasetId+", "+bbox+", "+timeRange;
+        return (getNetcdf ? "NetCDF: " : "CSV: ") + datasetId + ", " + bbox + ", " + timeRange;
     }
 
     /*

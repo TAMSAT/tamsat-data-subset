@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="author" content="Guy Griffiths">
+    <meta name="description" content="">
+
+    <link rel="stylesheet" href="css/tamsat.css">
+    <title>TAMSAT Data Subset</title>
+</head>
+
+<body>
+    <h1>Job list</h1>
+#if($email)
+    Completed job list for $email.
+    <table>
+ #foreach($job in $jobs)
+        <tr>
+            <td>$job.jobDescription</td>
+            <td><a href="?REQUEST=GETDATA&ID=$job.id">Download</a></td>
+        </tr>
+ #end
+    </table>
+#else
+    To see job list, enter your email address below.
+    
+    <form method="get" action="data">
+        <div class="tamsat-form-section">
+            <label for="email">Email address:</label>
+            <input type="text" name="email" />
+        </div>
+        <input type="submit" value="Submit">
+    </form>
+#end
+ </body>

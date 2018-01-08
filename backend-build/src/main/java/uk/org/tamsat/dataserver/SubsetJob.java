@@ -41,6 +41,8 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
+import uk.ac.rdg.resc.edal.dataset.Dataset;
 import uk.ac.rdg.resc.edal.dataset.GriddedDataset;
 import uk.ac.rdg.resc.edal.dataset.cdm.CdmGridFeatureWrite;
 import uk.ac.rdg.resc.edal.exceptions.EdalException;
@@ -63,7 +65,7 @@ public class SubsetJob implements Callable<Integer> {
 
     private static final Logger log = LoggerFactory.getLogger(SubsetJob.class);
 
-    public static final String FILE_PREFIX = "tamsat-subset-";
+    public static final String FILE_PREFIX = "tamsat-subset";
 
     private SubsetRequestParams params;
     private GriddedDataset dataset;
@@ -71,10 +73,14 @@ public class SubsetJob implements Callable<Integer> {
 
     private JobFinished callback;
 
-    public SubsetJob(SubsetRequestParams params, GriddedDataset dataset, File dataDir,
+    public SubsetJob(SubsetRequestParams params, DataCatalogue tamsatCatalogue, File dataDir,
             JobFinished callback) {
         this.params = params;
-        this.dataset = dataset;
+        Dataset ds = tamsatCatalogue.getDatasetFromId(params.getDatasetId());
+        if (!(ds instanceof GriddedDataset)) {
+            throw new EdalException("Only gridded datasets may be subset");
+        }
+        this.dataset = (GriddedDataset) ds;
         this.dataDir = dataDir;
         this.callback = callback;
     }
@@ -227,10 +233,9 @@ public class SubsetJob implements Callable<Integer> {
 
         log.debug("Job " + params.hashCode() + " completed");
         /*
-         * Return the hashcode of the job parameters
+         * TODO pick a better output filename
          */
-        FinishedJobState finishedJobState = new FinishedJobState(params.hashCode(), outputFile,
-                params.getEmail());
+        FinishedJobState finishedJobState = new FinishedJobState(params, outputFile);
         callback.jobFinished(finishedJobState);
 
         return params.hashCode();

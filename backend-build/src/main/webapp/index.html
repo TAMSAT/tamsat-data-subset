@@ -9,15 +9,60 @@
     <meta name="author" content="Guy Griffiths">
     <meta name="description" content="">
 
-    <!-- We include this here, rather than through SystemJS since it all applies to the HTML-defined layout -->
-    <link rel="stylesheet" href="css/index.css">
-    <title>Title</title>
+    <script src="js/data-subset.js"></script>
+    <link rel="stylesheet" href="css/tamsat.css">
+    <title>TAMSAT Data Subset</title>
 </head>
 
 <body>
-    <!-- Main HTML body here -->
-    <h1>Title</h1>
-    Content
+    <h1>TAMSAT Data Subset Service</h1>
+
+    <div class="tamsat-form">
+        <!-- <form method="post" action="data"> -->
+        <form method="post" action="http://localhost:8080/tamsat-subset-server/data">
+            <input type="hidden" name="dataset" value="tamsat" />
+            <div class="tamsat-form-section">
+                <input type="radio" name="datatype" id="pointChoice" value="point" onchange="datatypeSelected(value)" checked/>
+                <label for="pointChoice">Timeseries at a point</label>
+                <br />
+                <input type="radio" name="datatype" id="regionChoice" value="region" onchange="datatypeSelected(value)" />
+                <label for="regionChoice">Timeseries averaged over a region</label>
+                <br />
+                <input type="radio" name="datatype" id="netcdfChoice" value="netcdf" onchange="datatypeSelected(value)" />
+                <label for="netcdfChoice">Regional data as NetCDF</label>
+                <div id="pointSelection">
+                    <label for="lat">Latitude</label>
+                    <input type="number" name="lat" value=0 />
+                    <br />
+                    <label for="lon">Longitude</label>
+                    <input type="number" name="lon" value=0 />
+                </div>
+                <div id="regionSelection" hidden>
+                    <!-- Could add dropdown of countries here, with Bounding Box being the first option... -->
+                    <input type="number" name="maxLat" value=10 /><br />
+                    <input type="number" name="minLon" value=-10 />
+                    <input type="number" name="maxLon" value=10 /><br />
+                    <input type="number" name="minLat" value=-10 />
+                </div>
+            </div>
+            <div class="tamsat-form-section">
+                <!-- These get populated on load, by a call to the server -->
+                <label for="starttime">Start time</label>
+                <select name="starttime" id="startSelect">
+                </select>
+                <br />
+                <label for="endtime">End time</label>
+                <select name="endtime" id="endSelect">
+                </select>
+            </div>
+            <div class="tamsat-form-section">
+                <label for="email">Email address:</label>
+                <input type="text" name="email" />
+            </div>
+            <input type="submit" value="Submit">
+        </form>
+    </div>
+
 
     <!-- Use the following code during development -->
     <!-- <script src="./lib/system.js"></script>

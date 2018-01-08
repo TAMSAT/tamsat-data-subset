@@ -29,27 +29,76 @@
 package uk.org.tamsat.dataserver;
 
 import java.io.File;
+import java.io.Serializable;
 
-public class FinishedJobState {
-    private final int jobId;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.util.TimeUtils;
+
+public class FinishedJobState implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final SubsetRequestParams params;
     private final File fileLocation;
-    private final String email;
+    private final String outputFilename;
+    private long downloadedTime;
+    private long completedTime;
+    private boolean downloaded = false;
 
-    public FinishedJobState(int jobId, File fileLocation, String email) {
-        this.jobId = jobId;
+    public FinishedJobState(SubsetRequestParams params, File fileLocation) {
+        this.params = params;
         this.fileLocation = fileLocation;
-        this.email = email;
+        outputFilename = params.isNetCDF() ? "subset.nc" : "timeseries.csv";
+        downloadedTime = -1L;
+        completedTime = System.currentTimeMillis();
     }
     
     public int getId() {
-        return jobId;
+        return params.hashCode();
     }
 
     public File getFileLocation() {
         return fileLocation;
     }
+    
+    public String getOutputFilename() {
+        return outputFilename;
+    }
 
     public String getEmail() {
-        return email;
+        return params.getEmail();
+    }
+    
+    public String getJobDescription() {
+        StringBuilder sb = new StringBuilder();
+        if(params.isNetCDF()) {
+            sb.append("NetCDF subset of ");
+        } else {
+            sb.append("Timeseries of ");
+        }
+        if(params.getBbox().getWidth() != 0) {
+            sb.append(params.getBbox());
+        } else {
+            HorizontalPosition pos = params.getBbox().getLowerCorner();
+            sb.append("(Lat: "+pos.getY()+", Lon: "+pos.getX()+")");
+        }
+        sb.append(".  Between "+TimeUtils.formatUtcDateOnly(params.getTimeRange().getLow())+" and ");
+        sb.append(TimeUtils.formatUtcDateOnly(params.getTimeRange().getHigh())+".");
+        return sb.toString();
+    }
+    
+    public long getCompletedTime() {
+        return completedTime;
+    }
+    
+    public long getDownloadedTime() {
+        return downloadedTime;
+    }
+    
+    public void setDownloaded() {
+        downloaded = true;
+        downloadedTime = System.currentTimeMillis();
+    }
+    
+    public boolean wasDownloaded() {
+        return downloaded;
     }
 }
