@@ -80,7 +80,7 @@ public class FinishedJobState implements Serializable {
             HorizontalPosition pos = params.getBbox().getLowerCorner();
             sb.append("(Lat: "+pos.getY()+", Lon: "+pos.getX()+")");
         }
-        sb.append(".  Between "+TimeUtils.formatUtcDateOnly(params.getTimeRange().getLow())+" and ");
+        sb.append(".\nBetween "+TimeUtils.formatUtcDateOnly(params.getTimeRange().getLow())+" and ");
         sb.append(TimeUtils.formatUtcDateOnly(params.getTimeRange().getHigh())+".");
         return sb.toString();
     }

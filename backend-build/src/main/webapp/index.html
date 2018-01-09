@@ -19,8 +19,7 @@
     <h1>Data Subset Service</h1>
 
     <div class="tamsat-form">
-        <!-- <form method="post" action="data"> -->
-        <form method="post" action="http://localhost:8080/tamsat-subset-server/data">
+        <form method="post" action="data" onsubmit="return validateForm()">
             <input type="hidden" name="dataset" value="tamsat" />
             <div class="tamsat-form-section">
                 <label for="pointChoice">Timeseries at a point</label>
@@ -33,18 +32,18 @@
                 <input type="radio" name="datatype" id="netcdfChoice" value="netcdf" onchange="datatypeSelected(value)" />
                 <div id="pointSelection">
                     <label for="lat">Latitude</label>
-                    <input type="number" name="lat" value=0 />
+                    <input type="number" name="lat" min=-90 max=90 value=0 />
                     <br />
                     <label for="lon">Longitude</label>
-                    <input type="number" name="lon" value=0 />
+                    <input type="number" name="lon" min=-180 max=180 value=0 />
                 </div>
                 <div id="regionSelection" hidden>
                     <!-- Could add dropdown of countries here, with Bounding Box being the first option... -->
                     <label>Bounding Box:</label><br />
-                    <input id="minLat" type="number" name="maxLat" value=10 /><br />
-                    <input id="minLon" type="number" name="minLon" value=-10 />
-                    <input id="maxLon" type="number" name="maxLon" value=10 /><br />
-                    <input id="maxLat" type="number" name="minLat" value=-10 />
+                    <input id="maxLat" type="number" name="maxLat" min=-89 max=90 value=10 /><br />
+                    <input id="minLon" type="number" name="minLon" min=-180 max=179 value=-10 />
+                    <input id="maxLon" type="number" name="maxLon" min=-179 max=180 value=10 /><br />
+                    <input id="minLat" type="number" name="minLat" min=-90 max=89 value=-10 />
                 </div>
             </div>
             <div class="tamsat-form-section">
@@ -59,7 +58,7 @@
             </div>
             <div class="tamsat-form-section">
                 <label for="email">Email address</label>
-                <input type="text" name="email" />
+                <input id="email" type="text" name="email" />
             </div>
             <input type="submit" value="Submit Job">
         </form>
