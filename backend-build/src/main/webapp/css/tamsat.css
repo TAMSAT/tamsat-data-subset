@@ -1,68 +1,99 @@
 body {
-    background-color: #F3F5F1;
-    color: #7B7B7A;
-    font-family: Verdana;
-    font-size: 10pt;
-    margin: 0;
-    padding: 0;
+    background-color: #f5fdff;
+    color: #000033;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 14pt;
+    margin-left: auto;
+    margin-right: auto;
+    width: 500px;
 }
-img, form, fieldset {
-    border: 0 none;
-    padding: 10px;
-}
-h1, h2, h3, h4, h5, h6, table, form, p, ul, ol, link {
-    color: #7B7B7A;
-    font-weight: normal;
-    margin-bottom: 10px;
-    margin-top: 0;
-    padding-bottom: 0;
-    padding-top: 0;
-    text-align: left;
-}
+
 h1 {
-    font-size: 2.5em;
+    font-size: 20pt;
 }
-h2 {
-    font-size: 2em;
+
+.tamsat-form-section {
+    padding: 8px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    border: 1px solid black;
+    border-radius: 3px;
 }
-h3 {
-    font-size: 1.3em;
-    font-weight: bold;
+
+#minLon {
+    float: left;
+    left: 0px;
+    width: 30%;
 }
-h4 {
-    font-size: 1.15em;
+
+#maxLon {
+    float: right;
+    right: 0px;
+    width: 30%;
 }
-h5 {
-    font-size: 1.1em;
+
+#minLat, #maxLat {
+    display: inline-block;
+    margin-left: 35%;
+    margin-right: 35%;
+    width: 30%;
 }
-h6 {
-    font-size: 1em;
+
+label {
+    width: 250px;
+    float: left;
+    margin-left: 1px;
 }
+
+input[type=submit], select {
+    background: linear-gradient(rgb(255, 255, 255) 5%, rgb(205, 225, 240) 100%) rgb(245, 253, 255);
+    border-radius: 3px;
+    border: 1px solid rgb(18, 77, 119);
+    color: #000033;
+    cursor: pointer;
+    margin: 1px;
+}
+
+input[type=text], input[type=number], select {
+    font-size: 12pt;
+    margin: 1px;
+    width: 225px;
+}
+
+input[type=submit] {
+    padding: 8px;
+    font-size: 14pt;
+}
+
 a:visited {
-    color: #bBbBbA;
+    color: #333366;
 }
+
 a:link {
-    color: #7B7B7A;
+    color: #000033;
 }
+
 table {
     background-color: white;
     border-collapse: collapse;
-    border-color: gray;
+    border-color: #000033;
+    border-radius: 3px;
     border-spacing: 2px;
     border-style: solid;
     border-width: 1px;
 }
+
 table th {
-    border-color: gray;
+    border-color: #000033;
     border-style: solid;
     border-width: 1px;
     padding: 5px;
     font-weight: bold;
 }
+
 table td {
-    border-color: gray;
+    border-color: #000033;
     border-style: solid;
     border-width: 1px;
     padding: 2px;
 }
-

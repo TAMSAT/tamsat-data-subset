@@ -26,7 +26,7 @@
                 <label for="pointChoice">Timeseries at a point</label>
                 <br />
                 <input type="radio" name="datatype" id="regionChoice" value="region" onchange="datatypeSelected(value)" />
-                <label for="regionChoice">Timeseries averaged over a region</label>
+                <label for="regionChoice">Timeseries over a region</label>
                 <br />
                 <input type="radio" name="datatype" id="netcdfChoice" value="netcdf" onchange="datatypeSelected(value)" />
                 <label for="netcdfChoice">Regional data as NetCDF</label>
@@ -39,27 +39,28 @@
                 </div>
                 <div id="regionSelection" hidden>
                     <!-- Could add dropdown of countries here, with Bounding Box being the first option... -->
-                    <input type="number" name="maxLat" value=10 /><br />
-                    <input type="number" name="minLon" value=-10 />
-                    <input type="number" name="maxLon" value=10 /><br />
-                    <input type="number" name="minLat" value=-10 />
+                    <label>Bounding Box:</label><br />
+                    <input id="minLat" type="number" name="maxLat" value=10 /><br />
+                    <input id="minLon" type="number" name="minLon" value=-10 />
+                    <input id="maxLon" type="number" name="maxLon" value=10 /><br />
+                    <input id="maxLat" type="number" name="minLat" value=-10 />
                 </div>
             </div>
             <div class="tamsat-form-section">
                 <!-- These get populated on load, by a call to the server -->
-                <label for="starttime">Start time</label>
+                <label for="starttime">Start date</label>
                 <select name="starttime" id="startSelect">
                 </select>
                 <br />
-                <label for="endtime">End time</label>
+                <label for="endtime">End date</label>
                 <select name="endtime" id="endSelect">
                 </select>
             </div>
             <div class="tamsat-form-section">
-                <label for="email">Email address:</label>
+                <label for="email">Email address</label>
                 <input type="text" name="email" />
             </div>
-            <input type="submit" value="Submit">
+            <input type="submit" value="Submit Job">
         </form>
     </div>
 
