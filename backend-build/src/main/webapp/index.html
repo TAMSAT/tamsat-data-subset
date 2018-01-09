@@ -15,21 +15,22 @@
 </head>
 
 <body>
-    <h1>TAMSAT Data Subset Service</h1>
+    <img src="img/header.png" />
+    <h1>Data Subset Service</h1>
 
     <div class="tamsat-form">
         <!-- <form method="post" action="data"> -->
         <form method="post" action="http://localhost:8080/tamsat-subset-server/data">
             <input type="hidden" name="dataset" value="tamsat" />
             <div class="tamsat-form-section">
-                <input type="radio" name="datatype" id="pointChoice" value="point" onchange="datatypeSelected(value)" checked/>
                 <label for="pointChoice">Timeseries at a point</label>
+                <input type="radio" name="datatype" id="pointChoice" value="point" onchange="datatypeSelected(value)" checked/>
                 <br />
-                <input type="radio" name="datatype" id="regionChoice" value="region" onchange="datatypeSelected(value)" />
                 <label for="regionChoice">Timeseries over a region</label>
+                <input type="radio" name="datatype" id="regionChoice" value="region" onchange="datatypeSelected(value)" />
                 <br />
-                <input type="radio" name="datatype" id="netcdfChoice" value="netcdf" onchange="datatypeSelected(value)" />
                 <label for="netcdfChoice">Regional data as NetCDF</label>
+                <input type="radio" name="datatype" id="netcdfChoice" value="netcdf" onchange="datatypeSelected(value)" />
                 <div id="pointSelection">
                     <label for="lat">Latitude</label>
                     <input type="number" name="lat" value=0 />

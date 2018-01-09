@@ -1,6 +1,6 @@
 body {
-    background-color: #f5fdff;
-    color: #000033;
+    background-color: #white;
+    color: #000000;
     font-family: Helvetica, Arial, sans-serif;
     font-size: 14pt;
     margin-left: auto;
@@ -46,10 +46,10 @@ label {
 }
 
 input[type=submit], select {
-    background: linear-gradient(rgb(255, 255, 255) 5%, rgb(205, 225, 240) 100%) rgb(245, 253, 255);
+    background: linear-gradient(rgb(255, 255, 255) 5%, rgb(225, 225, 225) 100%) rgb(245, 253, 255);
     border-radius: 3px;
-    border: 1px solid rgb(18, 77, 119);
-    color: #000033;
+    border: 1px solid black;
+    color: #000000;
     cursor: pointer;
     margin: 1px;
 }
@@ -63,6 +63,11 @@ input[type=text], input[type=number], select {
 input[type=submit] {
     padding: 8px;
     font-size: 14pt;
+    width: 100%;
+}
+
+input[type=radio] {
+    margin-bottom: 12px;
 }
 
 a:visited {
@@ -76,7 +81,7 @@ a:link {
 table {
     background-color: white;
     border-collapse: collapse;
-    border-color: #000033;
+    border-color: #000000;
     border-radius: 3px;
     border-spacing: 2px;
     border-style: solid;
@@ -84,7 +89,7 @@ table {
 }
 
 table th {
-    border-color: #000033;
+    border-color: #000000;
     border-style: solid;
     border-width: 1px;
     padding: 5px;
@@ -92,8 +97,39 @@ table th {
 }
 
 table td {
-    border-color: #000033;
+    border-color: #000000;
     border-style: solid;
     border-width: 1px;
     padding: 2px;
+}
+
+@media only screen and (max-width: 500px) {
+    img {
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    body {
+        width: 100%;
+    }
+    .tamsat-form-section {
+        width: 95%;
+        padding: 4px;
+        margin-left: 1%;
+        margin-right: 1%;
+        margin-top: 4px;
+        margin-bottom: 4px;
+        border: 1px solid black;
+        border-radius: 3px;
+    }
+    input[type=submit], input[type=text], input[type=number], select {
+        width: 98%;
+        margin-bottom: 8px;
+    }
+    label {
+        width: 90%;
+    }
+    input[type=radio] {
+        width: 5%;
+    }
 }
