@@ -247,6 +247,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
         super.destroy();
         jobQueue.shutdown();
         tamsatCatalogue.shutdown();
+        cleaner.shutdown();
         GISUtils.releaseEpsgDatabase();
     }
 
@@ -416,7 +417,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
                 new File(dataDir, COMPLETED_JOBLIST_FILENAME));
                 ObjectOutputStream oos = new ObjectOutputStream(fos)) {
             oos.writeObject(finishedJobs);
-            log.debug("Complted job list written to file");
+            log.debug("Completed job list written to file");
         } catch (IOException e) {
             log.error(
                     "Problem writing completed job list.  Persistence will not work across restarts");
