@@ -1,0 +1,4 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Context>
+    <Parameter name="TamsatConfigDir" value="/usr/local/tamsat-subset" override="false"/>
+</Context>
