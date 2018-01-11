@@ -14,9 +14,10 @@
 </head>
 
 <body>
+    <img src="img/header.png" />
     <h1>Job list</h1>
 #if($email)
-    Completed job list for $email.
+    Completed job list for $email:
     <table>
  #foreach($job in $jobs)
         <tr>
@@ -27,7 +28,7 @@
     </table>
 #else
     To see job list, enter your email address below.
-    
+
     <form method="get" action="data">
         <div class="tamsat-form-section">
             <label for="email">Email address:</label>
