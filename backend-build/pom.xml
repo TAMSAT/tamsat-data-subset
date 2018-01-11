@@ -8,11 +8,11 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <iea.url>http://www.the-iea.org</iea.url>
-        <edal.version>1.2.13-SNAPSHOT</edal.version>
+        <edal.version>1.2.13</edal.version>
     </properties>
 
     <packaging>war</packaging>
-    <name>tamsat-subset-server</name>
+    <name>tamsat-subset</name>
     <url>https://github.com/tamsat/tamsat-subset-server</url>
     <inceptionYear>2017</inceptionYear>
     <description>This is the backend server for the TAMSAT website.  It deals with queueing subsetting, averaging and extraction of data from the TAMSAT project</description>
@@ -76,7 +76,7 @@
     </dependencies>
 
     <build>
-        <finalName>tamsat-subset-server</finalName>
+        <finalName>tamsat-subset</finalName>
         <plugins>
             <plugin>
                 <!-- Sets the source version to 1.8 -->
