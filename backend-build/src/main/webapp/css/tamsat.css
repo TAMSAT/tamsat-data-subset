@@ -40,7 +40,7 @@ h1 {
 }
 
 label {
-    width: 250px;
+    width: 270px;
     float: left;
     margin-left: 1px;
 }
@@ -57,7 +57,7 @@ input[type=submit], select {
 input[type=text], input[type=number], select {
     font-size: 12pt;
     margin: 1px;
-    width: 225px;
+    width: 205px;
 }
 
 input[type=submit] {

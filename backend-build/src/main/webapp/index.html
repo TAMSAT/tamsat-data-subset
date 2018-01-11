@@ -22,28 +22,28 @@
         <form method="post" action="data" onsubmit="return validateForm()">
             <input type="hidden" name="dataset" value="tamsat" />
             <div class="tamsat-form-section">
-                <label for="pointChoice">Timeseries at a point</label>
+                <label for="pointChoice">Timeseries at a point (CSV)</label>
                 <input type="radio" name="datatype" id="pointChoice" value="point" onchange="datatypeSelected(value)" checked/>
                 <br />
-                <label for="regionChoice">Timeseries over a region</label>
+                <label for="regionChoice">Timeseries over a region (CSV)</label>
                 <input type="radio" name="datatype" id="regionChoice" value="region" onchange="datatypeSelected(value)" />
                 <br />
-                <label for="netcdfChoice">Regional data as NetCDF</label>
+                <label for="netcdfChoice">Regional data (NetCDF)</label>
                 <input type="radio" name="datatype" id="netcdfChoice" value="netcdf" onchange="datatypeSelected(value)" />
                 <div id="pointSelection">
                     <label for="lat">Latitude</label>
-                    <input type="number" name="lat" min=-90 max=90 value=0 />
+                    <input type="number" name="lat" min=-90 max=90 value=0 step="any" />
                     <br />
                     <label for="lon">Longitude</label>
-                    <input type="number" name="lon" min=-180 max=180 value=0 />
+                    <input type="number" name="lon" min=-180 max=180 value=0 step="any" />
                 </div>
                 <div id="regionSelection" hidden>
                     <!-- Could add dropdown of countries here, with Bounding Box being the first option... -->
                     <label>Bounding Box:</label><br />
-                    <input id="maxLat" type="number" name="maxLat" min=-89 max=90 value=10 /><br />
-                    <input id="minLon" type="number" name="minLon" min=-180 max=179 value=-10 />
-                    <input id="maxLon" type="number" name="maxLon" min=-179 max=180 value=10 /><br />
-                    <input id="minLat" type="number" name="minLat" min=-90 max=89 value=-10 />
+                    <input id="maxLat" type="number" name="maxLat" min=-89 max=90 value=10 step="any" /><br />
+                    <input id="minLon" type="number" name="minLon" min=-180 max=179 value=-10 step="any" />
+                    <input id="maxLon" type="number" name="maxLon" min=-179 max=180 value=10 step="any" /><br />
+                    <input id="minLat" type="number" name="minLat" min=-90 max=89 value=-10 step="any" />
                 </div>
             </div>
             <div class="tamsat-form-section">
