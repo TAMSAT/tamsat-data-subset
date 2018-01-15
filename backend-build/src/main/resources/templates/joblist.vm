@@ -25,6 +25,8 @@
             <td><a href="?REQUEST=GETDATA&ID=$job.id">Download</a></td>
         </tr>
  #end
+    <br />
+    Note that jobs are available for download for 7 days after completion, or 24 hours after it has been downloaded for the first time.
     </table>
 #else
     To see job list, enter your email address below.

@@ -5,26 +5,51 @@ window.onload = function() {
     var maxLat = document.getElementById('maxLat');
     var minLon = document.getElementById('minLon');
     var maxLon = document.getElementById('maxLon');
+
+    // Basic sanity check for min/max limits
+    // WHY DON'T BROWSERS DO THIS?
+    var checkLimits = function(s) {
+        if(parseFloat(s.value) > s.max) {
+            s.value = s.max;
+        } else  if(parseFloat(s.value) < s.min) {
+            s.value = s.min;
+        }
+    }
+
     minLat.addEventListener('change', function(e) {
+        checkLimits(minLat);
         if (parseFloat(minLat.value) > parseFloat(maxLat.value)) {
             maxLat.value = 1 + parseFloat(minLat.value);
         }
     });
     maxLat.addEventListener('change', function(e) {
+        checkLimits(maxLat);
         if (parseFloat(minLat.value) > parseFloat(maxLat.value)) {
             minLat.value = parseFloat(maxLat.value) - 1;
         }
     });
     minLon.addEventListener('change', function(e) {
+        checkLimits(minLon);
         if (parseFloat(minLon.value) > parseFloat(maxLon.value)) {
             maxLon.value = 1 + parseFloat(minLon.value);
         }
     });
     maxLon.addEventListener('change', function(e) {
+        checkLimits(maxLon);
         if (parseFloat(minLon.value) > parseFloat(maxLon.value)) {
             minLon.value = parseFloat(maxLon.value) - 1;
         }
     });
+
+    // and listeners for the min/max limits for the point lat/lon boxes
+    var lat = document.getElementById('lat');
+    lat.addEventListener('change', function(e) {
+        checkLimits(lat);
+    })
+    var lon = document.getElementById('lon');
+    lat.addEventListener('change', function(e) {
+        checkLimits(lon);
+    })
 
 
     var xhr = new XMLHttpRequest();
@@ -73,6 +98,18 @@ window.onload = function() {
         console.error(xhr.statusText);
     };
     xhr.send(null);
+
+    // This is normally handled by the fact that datatypeSelected is bound to the
+    // change event of all of the radio buttons.
+    // However, running it manually here takes care of the situation where we've
+    // chosen a region option, submitted, and used browser history to go back.
+    // Without this, in that situation, a region is picked on the radio button,
+    // but lat/lon boxes for a point are displayed.
+    if(document.getElementById('pointChoice').checked) {
+        datatypeSelected('point')
+    } else {
+        datatypeSelected('region')
+    }
 }
 
 // Gets called when radio button denoting data type changes.
