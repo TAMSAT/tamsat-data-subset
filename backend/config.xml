@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <config>
     <datasets>
-        <dataset id="tamsat" title="TAMSAT v3" location="/usr/local/tamsat-data/**/**/**/*.nc" queryable="true" downloadable="false" dataReaderClass="" copyrightStatement="" moreInfo="" disabled="false" updateInterval="-1">
+        <dataset id="tamsat" title="TAMSAT v3" location="/usr/local/tamsat-data/**/**/*.nc" queryable="true" downloadable="false" dataReaderClass="" copyrightStatement="" moreInfo="" disabled="false" updateInterval="-1">
         </dataset>
     </datasets>
     <cache enabled="false">
