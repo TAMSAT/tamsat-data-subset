@@ -42,12 +42,12 @@ import uk.ac.rdg.resc.edal.util.Extents;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
 
 public class SubsetRequestParams implements Serializable {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
     private final String datasetId;
     private final BoundingBox bbox;
     private final Extent<DateTime> timeRange;
     private final boolean getNetcdf;
-    private final String email;
+    private final JobReference jobRef;
 
     public SubsetRequestParams(HttpServletRequest req) {
         TamsatRequestParams params = new TamsatRequestParams(req.getParameterMap());
@@ -65,10 +65,30 @@ public class SubsetRequestParams implements Serializable {
             double maxLat = params.getDouble("MAXLAT", 0f);
             bbox = new BoundingBoxImpl(minLon, minLat, maxLon, maxLat);
         }
-        DateTime startTime = TimeUtils.iso8601ToDateTime(params.getMandatoryString("STARTTIME"), ISOChronology.getInstanceUTC());
-        DateTime endTime = TimeUtils.iso8601ToDateTime(params.getMandatoryString("ENDTIME"), ISOChronology.getInstanceUTC());
+        DateTime startTime = TimeUtils.iso8601ToDateTime(params.getMandatoryString("STARTTIME"),
+                ISOChronology.getInstanceUTC());
+        DateTime endTime = TimeUtils.iso8601ToDateTime(params.getMandatoryString("ENDTIME"),
+                ISOChronology.getInstanceUTC());
         timeRange = Extents.newExtent(startTime, endTime);
-        email = params.getMandatoryString("EMAIL");
+        String email = params.getMandatoryString("EMAIL");
+        String ref = params.getMandatoryString("REF");
+        jobRef = new JobReference(email, ref);
+    }
+
+    /**
+     * This Job ID is equivalent to a unique filename.
+     * 
+     * @return an ID which is unique for each distinct job. Two equivalent jobs
+     *         will share the same ID. This is desirable, since it means that
+     *         duplicate jobs don't need to be re-run.
+     */
+    public String getJobId() {
+        return datasetId + "-" + timeRange.getLow().getMillis() / 1000L + "-"
+                + timeRange.getHigh().getMillis() / 1000L + "_"
+                + (bbox.getWidth() == 0 ? (bbox.getMinX() + "_" + bbox.getMinY())
+                        : (bbox.getMinX() + "_" + bbox.getMaxX() + "_" + bbox.getMinY() + "_"
+                                + bbox.getMaxY()))
+                + (getNetcdf ? ".nc" : ".csv");
     }
 
     public String getDatasetId() {
@@ -87,8 +107,8 @@ public class SubsetRequestParams implements Serializable {
         return getNetcdf;
     }
 
-    public String getEmail() {
-        return email;
+    public JobReference getJobRef() {
+        return jobRef;
     }
 
     @Override

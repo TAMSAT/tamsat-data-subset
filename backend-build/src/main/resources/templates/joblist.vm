@@ -16,25 +16,32 @@
 <body>
     <img src="img/header.png" />
     <h1>Job list</h1>
-#if($email)
-    Completed job list for $email:
+#if($email && $ref)
+    Completed job list for $email with reference $ref:
+    <br />
     <table>
+        <tr>
+            <th>Description</th>        
+            <th>Link</th>
+        </tr>        
  #foreach($job in $jobs)
         <tr>
             <td>$job.jobDescription</td>
             <td><a href="?REQUEST=GETDATA&ID=$job.id">Download</a></td>
         </tr>
  #end
+    </table>
     <br />
     Note that jobs are available for download for 7 days after completion, or 24 hours after it has been downloaded for the first time.
-    </table>
 #else
     To see job list, enter your email address below.
 
     <form method="get" action="data">
         <div class="tamsat-form-section">
             <label for="email">Email address:</label>
-            <input type="text" name="email" />
+            <input type="text" name="email" /><br />
+            <label for="email">Job/Group Reference:</label>
+            <input type="text" name="ref" />
         </div>
         <input type="submit" value="Submit">
     </form>

@@ -65,8 +65,6 @@ public class SubsetJob implements Callable<Integer> {
 
     private static final Logger log = LoggerFactory.getLogger(SubsetJob.class);
 
-    public static final String FILE_PREFIX = "tamsat-subset";
-
     private SubsetRequestParams params;
     private GriddedDataset dataset;
     private File dataDir;
@@ -95,7 +93,7 @@ public class SubsetJob implements Callable<Integer> {
         /*
          * Do the subsetting and save the file
          */
-        File outputFile = new File(dataDir, FILE_PREFIX + params.hashCode());
+        File outputFile = new File(dataDir, params.getJobId());
 
         BoundingBox bbox = params.getBbox();
         Set<String> varIds = dataset.getVariableIds();

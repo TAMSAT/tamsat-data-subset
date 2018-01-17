@@ -35,7 +35,7 @@ import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
 
 public class FinishedJobState implements Serializable {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
     private final SubsetRequestParams params;
     private final File fileLocation;
     private final String outputFilename;
@@ -46,13 +46,14 @@ public class FinishedJobState implements Serializable {
     public FinishedJobState(SubsetRequestParams params, File fileLocation) {
         this.params = params;
         this.fileLocation = fileLocation;
-        outputFilename = params.isNetCDF() ? "subset.nc" : "timeseries.csv";
+        /* Job ID is a unique (per unique job) filename */
+        outputFilename = params.getJobId();
         downloadedTime = -1L;
         completedTime = System.currentTimeMillis();
     }
     
-    public int getId() {
-        return params.hashCode();
+    public String getId() {
+        return params.getJobId();
     }
 
     public File getFileLocation() {
@@ -63,8 +64,8 @@ public class FinishedJobState implements Serializable {
         return outputFilename;
     }
 
-    public String getEmail() {
-        return params.getEmail();
+    public JobReference getJobRef() {
+        return params.getJobRef();
     }
     
     public String getJobDescription() {

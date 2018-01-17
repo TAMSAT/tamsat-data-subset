@@ -78,7 +78,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
 
     private static final long serialVersionUID = 1L;
 
-    private Map<Integer, SubsetRequestParams> submittedJobs = new HashMap<>();
+    private Map<String, SubsetRequestParams> submittedJobs = new HashMap<>();
     private ExecutorService jobQueue;
     private ScheduledExecutorService cleaner;
 
@@ -86,8 +86,8 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
 
     private File dataDir;
 
-    private Map<Integer, FinishedJobState> ids2Jobs = new HashMap<>();
-    private Map<String, List<FinishedJobState>> email2Jobs = new HashMap<>();
+    private Map<String, FinishedJobState> ids2Jobs = new HashMap<>();
+    private Map<JobReference, List<FinishedJobState>> jobRef2Jobs = new HashMap<>();
     private List<FinishedJobState> finishedJobs = new ArrayList<>();
 
     private VelocityEngine velocityEngine;
@@ -161,16 +161,16 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
                     ObjectInputStream ois = new ObjectInputStream(fis)) {
                 Object obj = ois.readObject();
                 if (obj instanceof Map) {
-                    submittedJobs = (Map<Integer, SubsetRequestParams>) obj;
+                    submittedJobs = (Map<String, SubsetRequestParams>) obj;
 
                     /*
                      * Now run all of the jobs
                      */
-                    for (Integer key : submittedJobs.keySet()) {
+                    for (String key : submittedJobs.keySet()) {
                         SubsetRequestParams subsetParams = submittedJobs.get(key);
                         jobQueue.submit(
                                 new SubsetJob(subsetParams, tamsatCatalogue, dataDir, this));
-                        submittedJobs.put(subsetParams.hashCode(), subsetParams);
+                        submittedJobs.put(subsetParams.getJobId(), subsetParams);
                     }
                     saveSubmittedJobList();
                 }
@@ -197,10 +197,10 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
                      */
                     for (FinishedJobState job : finishedJobs) {
                         ids2Jobs.put(job.getId(), job);
-                        if (!email2Jobs.containsKey(job.getEmail())) {
-                            email2Jobs.put(job.getEmail(), new ArrayList<>());
+                        if (!jobRef2Jobs.containsKey(job.getJobRef())) {
+                            jobRef2Jobs.put(job.getJobRef(), new ArrayList<>());
                         }
-                        email2Jobs.get(job.getEmail()).add(job);
+                        jobRef2Jobs.get(job.getJobRef()).add(job);
                     }
                 }
             } catch (Throwable e) {
@@ -226,12 +226,29 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
                                     * 60 * 24)
                             || (System.currentTimeMillis() - job.getCompletedTime()) > 1000 * 60
                                     * 60 * 24 * 7) {
+                        log.debug("Job " + job.getId() + " has expired");
+                        if (job.wasDownloaded()) {
+                            log.debug("It was downloaded at " + job.getDownloadedTime() + " (now "
+                                    + System.currentTimeMillis() + ")");
+                        } else {
+                            log.debug("It was created at " + job.getCompletedTime() + " (now "
+                                    + System.currentTimeMillis() + ")");
+                        }
                         expired.add(job);
-                        File expiredFile = new File(dataDir, SubsetJob.FILE_PREFIX + job.getId());
-                        expiredFile.delete();
+                        File expiredFile = new File(dataDir, job.getId());
+                        boolean delete = expiredFile.delete();
+                        log.debug(delete ? "Delete worked" : "Delete failed");
                     }
                 }
-                finishedJobs.removeAll(expired);
+                if (expired.size() > 0) {
+                    /*
+                     * Remove any expired jobs from the job list and save it
+                     */
+                    for (FinishedJobState x : expired) {
+                        deleteFinishedJob(x);
+                    }
+                    saveCompletedJobList();
+                }
             }
         };
         /*
@@ -270,12 +287,14 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
              * No parameters added, just show available subsets
              */
             String email = params.getString("EMAIL");
+            String ref = params.getString("REF");
 
             Template template = velocityEngine.getTemplate("templates/joblist.vm");
             VelocityContext context = new VelocityContext();
             context.put("email", email);
-            if (email != null) {
-                List<FinishedJobState> jobs = email2Jobs.get(email);
+            context.put("ref", ref);
+            if (email != null && ref != null) {
+                List<FinishedJobState> jobs = jobRef2Jobs.get(new JobReference(email, ref));
                 context.put("jobs", jobs);
             }
             try {
@@ -317,7 +336,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
             /*
              * Requests a data file from a previously completed job
              */
-            int id = params.getMandatoryInt("ID");
+            String id = params.getMandatoryString("ID");
             FinishedJobState finishedJobState = ids2Jobs.get(id);
             if (finishedJobState == null) {
                 throw new ServletException("The job ID " + id + " does not exist.");
@@ -363,9 +382,9 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
             /*
              * Add the job to the queue
              */
-            log.debug("Adding job " + subsetParams.hashCode() + " to the queue");
+            log.debug("Adding job " + subsetParams.getJobId() + " to the queue");
             jobQueue.submit(new SubsetJob(subsetParams, tamsatCatalogue, dataDir, this));
-            submittedJobs.put(subsetParams.hashCode(), subsetParams);
+            submittedJobs.put(subsetParams.getJobId(), subsetParams);
             saveSubmittedJobList();
         } catch (Exception e) {
             log.error("Problem parsing parameters and adding job", e);
@@ -374,7 +393,8 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
 
         Template template = velocityEngine.getTemplate("templates/job_posted.vm");
         VelocityContext context = new VelocityContext();
-        context.put("email", subsetParams.getEmail());
+        context.put("email", subsetParams.getJobRef().email);
+        context.put("ref", subsetParams.getJobRef().ref);
         try {
             template.merge(context, resp.getWriter());
         } catch (Exception e) {
@@ -386,27 +406,46 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
     @Override
     public synchronized void jobFinished(FinishedJobState state) {
         /*
-         * Add job state to appropriate Maps for easy retrieval
-         */
-        if (!email2Jobs.containsKey(state.getEmail())) {
-            email2Jobs.put(state.getEmail(), new ArrayList<>());
-        }
-        email2Jobs.get(state.getEmail()).add(state);
-        ids2Jobs.put(state.getId(), state);
-
-        /*
          * Remove job from running job list
          */
         submittedJobs.remove(state.getId());
 
         log.debug("Saving completed job " + state.getId());
 
+        addFinishedJob(state);
+
+        saveCompletedJobList();
+        saveSubmittedJobList();
+    }
+
+    private synchronized void addFinishedJob(FinishedJobState state) {
+        /*
+         * Add job state to appropriate Maps for easy retrieval
+         */
+        if (!jobRef2Jobs.containsKey(state.getJobRef())) {
+            jobRef2Jobs.put(state.getJobRef(), new ArrayList<>());
+        }
+        jobRef2Jobs.get(state.getJobRef()).add(state);
+        ids2Jobs.put(state.getId(), state);
+
         /*
          * Add job state to list of jobs and persist
          */
         finishedJobs.add(state);
-        saveCompletedJobList();
-        saveSubmittedJobList();
+    }
+
+    private synchronized void deleteFinishedJob(FinishedJobState state) {
+        List<FinishedJobState> list = jobRef2Jobs.get(state.getJobRef());
+        if (list != null) {
+            list.remove(state);
+            /* If that was the last job with that state, remove it */
+            if (list.size() == 0) {
+                jobRef2Jobs.remove(state.getJobRef());
+            }
+        }
+        ids2Jobs.remove(state.getId());
+
+        finishedJobs.remove(state);
     }
 
     /**

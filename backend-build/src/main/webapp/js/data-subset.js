@@ -125,8 +125,9 @@ function datatypeSelected(value) {
 }
 
 function validateForm() {
-    if (!document.getElementById('email').value) {
-        window.alert('You must enter an email address');
+    if (!document.getElementById('email').value ||
+        !document.getElementById('ref').value) {
+        window.alert('You must enter an email address and a job reference.');
         return false;
     }
 }

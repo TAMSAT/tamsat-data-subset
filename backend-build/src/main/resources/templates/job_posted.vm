@@ -16,6 +16,6 @@
 <body>
     <img src="img/header.png" />
     <h1>Subset job submitted</h1>
-    Your job has been successfully submitted to the queue.  When completed, it will be available from <a href="?email=$email">here</a>.<br />
+    Your job has been successfully submitted to the queue.  When completed, it will be available from <a href="?email=$email&ref=$ref">here</a>.<br />
     Note that your job will be available for download for 7 days after completion, or 24 hours after it has been downloaded for the first time.
  </body>
