@@ -6,4 +6,4 @@ COPY src/ /opt/tamsat-alert/backend-build/src
 WORKDIR /opt/tamsat-alert/backend-build/
 RUN mvn package
 # This is a mounted volume at the location we want the WAR (e.g. /usr/share/tomcat/webapp)
-CMD cp target/tamsat-subset.war /mnt/build-out
+CMD cp target/tamsat-subset.war /mnt/build-out/ROOT.war
