@@ -18,7 +18,7 @@
     <img src="img/header.png" />
     <h1>Data Subset Service</h1>
 
-    <div class="tamsat-form">
+    <div id="form" class="tamsat-form">
         <form method="post" action="data" onsubmit="return validateForm()">
             <input type="hidden" name="dataset" value="tamsat" />
             <div class="tamsat-form-section">
@@ -64,6 +64,11 @@
             </div>
             <input type="submit" value="Submit Job">
         </form>
+    </div>
+    <div id="not_loaded" style="display:none;">
+        The data has not yet loaded on the server.  Please try again in 5 minutes.<br />
+        If this message persists, please contact the server administrator - there may
+        be an error.
     </div>
 
 

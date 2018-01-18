@@ -90,7 +90,12 @@ window.onload = function() {
                     }
                 });
             } else {
-                console.error(xhr.statusText);
+                // No times are available.  The dataset is not loaded on the server
+                // This is *probably* because we've only just started up.
+                // But it could be indicative of a larger error.
+                // Display a "first wait and see, then contact us" message.
+                document.getElementById('form').style.display = 'none';
+                document.getElementById('not_loaded').style.display = 'block';
             }
         }
     };
@@ -106,9 +111,9 @@ window.onload = function() {
     // Without this, in that situation, a region is picked on the radio button,
     // but lat/lon boxes for a point are displayed.
     if(document.getElementById('pointChoice').checked) {
-        datatypeSelected('point')
+        datatypeSelected('point');
     } else {
-        datatypeSelected('region')
+        datatypeSelected('region');
     }
 }
 

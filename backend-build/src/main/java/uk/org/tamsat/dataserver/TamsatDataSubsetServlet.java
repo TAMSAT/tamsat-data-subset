@@ -309,6 +309,9 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
              */
             String datasetId = params.getMandatoryString("DATASET");
             Dataset dataset = tamsatCatalogue.getDatasetFromId(datasetId);
+            if(dataset == null) {
+                throw new ServletException("Data is not yet loaded on the server - please try again in 5 minutes");
+            }
             Set<String> varIds = dataset.getVariableIds();
             DateTime startTime = null;
             DateTime endTime = null;
