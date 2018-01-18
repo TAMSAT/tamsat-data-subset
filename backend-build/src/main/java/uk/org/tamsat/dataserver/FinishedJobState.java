@@ -47,7 +47,7 @@ public class FinishedJobState implements Serializable {
         this.params = params;
         this.fileLocation = fileLocation;
         /* Job ID is a unique (per unique job) filename */
-        outputFilename = params.getJobId();
+        outputFilename = params.getFilename();
         downloadedTime = -1L;
         completedTime = System.currentTimeMillis();
     }

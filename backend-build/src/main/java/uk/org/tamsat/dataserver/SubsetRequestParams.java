@@ -48,6 +48,7 @@ public class SubsetRequestParams implements Serializable {
     private final Extent<DateTime> timeRange;
     private final boolean getNetcdf;
     private final JobReference jobRef;
+    private String filename;
 
     public SubsetRequestParams(HttpServletRequest req) {
         TamsatRequestParams params = new TamsatRequestParams(req.getParameterMap());
@@ -72,23 +73,26 @@ public class SubsetRequestParams implements Serializable {
         timeRange = Extents.newExtent(startTime, endTime);
         String email = params.getMandatoryString("EMAIL");
         String ref = params.getMandatoryString("REF");
+        filename = datasetId + "-" + timeRange.getLow().getMillis() / 1000L + "-"
+                + timeRange.getHigh().getMillis() / 1000L + "_"
+                + (bbox.getWidth() == 0 ? (bbox.getMinX() + "_" + bbox.getMinY())
+                        : (bbox.getMinX() + "_" + bbox.getMaxX() + "_" + bbox.getMinY() + "_"
+                                + bbox.getMaxY()))
+                + (getNetcdf ? ".nc" : ".csv");
         jobRef = new JobReference(email, ref);
     }
 
     /**
      * This Job ID is equivalent to a unique filename.
      * 
-     * @return an ID which is unique for each distinct job. Two equivalent jobs
-     *         will share the same ID. This is desirable, since it means that
-     *         duplicate jobs don't need to be re-run.
+     * @return an ID which is unique for each distinct job.
      */
     public String getJobId() {
-        return datasetId + "-" + timeRange.getLow().getMillis() / 1000L + "-"
-                + timeRange.getHigh().getMillis() / 1000L + "_"
-                + (bbox.getWidth() == 0 ? (bbox.getMinX() + "_" + bbox.getMinY())
-                        : (bbox.getMinX() + "_" + bbox.getMaxX() + "_" + bbox.getMinY() + "_"
-                                + bbox.getMaxY()))
-                + (getNetcdf ? ".nc" : ".csv");
+        return filename + jobRef.hashCode();
+    }
+    
+    public String getFilename() {
+        return filename;
     }
 
     public String getDatasetId() {

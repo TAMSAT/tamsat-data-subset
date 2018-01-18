@@ -213,7 +213,6 @@ public class SubsetJob implements Callable<Integer> {
                                      * The weight of the area
                                      */
                                     double weight = weights.get(gc);
-//                                    log.debug("Adding weight to mean: "+i+","+j+": "+weight);
                                     Number val = vals.get(t, 0, j, i);
                                     if (val != null) {
                                         totalVal += weight * val.doubleValue();
