@@ -67,6 +67,7 @@ import uk.ac.rdg.resc.edal.util.GISUtils.EpsgDatabasePath;
  * @author Guy Griffiths
  */
 public class TamsatApplicationServlet extends HttpServlet {
+    public static final String CONTEXT_JOB_LISTING = "JobListing";
     public static final String CONTEXT_CONFIG_DIR = "TamsatConfigDir";
     public static final String CONTEXT_TAMSAT_CATALOGUE = "TamsatCatalogue";
     public static final String CONTEXT_VELOCITY_ENGINE = "VelocityEngine";

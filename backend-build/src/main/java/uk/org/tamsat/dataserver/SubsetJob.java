@@ -173,7 +173,7 @@ public class SubsetJob implements Callable<Integer> {
                      * Subset into a single GridFeature to ensure a common grid,
                      * and the minimum horizontal range (will throw an exception
                      * if not all vars on the same grid, and will take care of
-                     * partial overlaps - TODO check)
+                     * partial overlaps)
                      */
                     GridFeature subset = dataset.subsetFeatures(varIds, bbox, null,
                             params.getTimeRange());

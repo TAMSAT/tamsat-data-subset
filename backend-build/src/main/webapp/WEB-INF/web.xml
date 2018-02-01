@@ -7,18 +7,18 @@
         <servlet-class>uk.org.tamsat.dataserver.TamsatApplicationServlet</servlet-class>
         <load-on-startup>1</load-on-startup>
     </servlet>
-    <!-- <servlet> -->
-    <!-- <description>The servlet which deals with all admin tasks</description> -->
-    <!-- <display-name>TamsatAdminServlet</display-name> -->
-    <!-- <servlet-name>TamsatAdminServlet</servlet-name> -->
-    <!-- <servlet-class>uk.org.tamsat.dataserver.TamsatAdminServlet</servlet-class> -->
-    <!-- <load-on-startup>2</load-on-startup> -->
-    <!-- </servlet> -->
     <servlet>
         <description>The servlet which deals with serving data</description>
         <display-name>TamsatDataSubsetServlet</display-name>
         <servlet-name>TamsatDataSubsetServlet</servlet-name>
         <servlet-class>uk.org.tamsat.dataserver.TamsatDataSubsetServlet</servlet-class>
+        <load-on-startup>2</load-on-startup>
+    </servlet>
+    <servlet>
+        <description>The servlet which deals with all admin tasks</description>
+        <display-name>TamsatAdminServlet</display-name>
+        <servlet-name>TamsatAdminServlet</servlet-name>
+        <servlet-class>uk.org.tamsat.dataserver.TamsatAdminServlet</servlet-class>
         <load-on-startup>3</load-on-startup>
     </servlet>
     <filter>
@@ -38,10 +38,10 @@
         <servlet-name>TamsatDataSubsetServlet</servlet-name>
         <url-pattern>/data/*</url-pattern>
     </servlet-mapping>
-    <!-- <servlet-mapping> -->
-    <!-- <servlet-name>TamsatAdminServlet</servlet-name> -->
-    <!-- <url-pattern>/admin/*</url-pattern> -->
-    <!-- </servlet-mapping> -->
+    <servlet-mapping>
+        <servlet-name>TamsatAdminServlet</servlet-name>
+        <url-pattern>/admin/*</url-pattern>
+    </servlet-mapping>
     <welcome-file-list>
         <welcome-file>index.html</welcome-file>
     </welcome-file-list>

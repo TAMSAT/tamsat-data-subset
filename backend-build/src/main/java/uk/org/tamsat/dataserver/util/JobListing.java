@@ -26,55 +26,16 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
 
-package uk.org.tamsat.dataserver;
+package uk.org.tamsat.dataserver.util;
 
-import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
-public class JobReference implements Serializable {
-    private static final long serialVersionUID = 2L;
-    public final String email;
-    public final String ref;
-    public JobReference(String email, String ref) {
-        this.email = email;
-        this.ref = ref;
-    }
-    
-    public String getEmail() {
-        return email;
-    }
+import uk.org.tamsat.dataserver.FinishedJobState;
+import uk.org.tamsat.dataserver.SubsetRequestParams;
 
+public interface JobListing {
+    public List<FinishedJobState> getFinishedJobs();
 
-    public String getRef() {
-        return ref;
-    }
-
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((email == null) ? 0 : email.hashCode());
-        result = prime * result + ((ref == null) ? 0 : ref.hashCode());
-        return result;
-    }
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        JobReference other = (JobReference) obj;
-        if (email == null) {
-            if (other.email != null)
-                return false;
-        } else if (!email.equals(other.email))
-            return false;
-        if (ref == null) {
-            if (other.ref != null)
-                return false;
-        } else if (!ref.equals(other.ref))
-            return false;
-        return true;
-    }
+    public Map<String, SubsetRequestParams> getQueuedJobs();
 }

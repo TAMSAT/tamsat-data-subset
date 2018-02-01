@@ -66,13 +66,14 @@ import uk.ac.rdg.resc.edal.domain.TemporalDomain;
 import uk.ac.rdg.resc.edal.util.GISUtils;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
 import uk.org.tamsat.dataserver.SubsetJob.JobFinished;
+import uk.org.tamsat.dataserver.util.JobListing;
 
 /**
  * A servlet which handles the queueing of
  *
  * @author Guy Griffiths
  */
-public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished {
+public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished, JobListing {
     private static final String COMPLETED_JOBLIST_FILENAME = "joblist-completed.dat";
     private static final String SUBMITTED_JOBLIST_FILENAME = "joblist-submitted.dat";
 
@@ -98,6 +99,13 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
     @SuppressWarnings("unchecked")
     public void init(ServletConfig servletConfig) throws ServletException {
         super.init(servletConfig);
+
+        /*
+         * Expose the job listing interface, so that the admin servlet can
+         * access it.
+         */
+        servletConfig.getServletContext().setAttribute(TamsatApplicationServlet.CONTEXT_JOB_LISTING,
+                this);
 
         /*
          * Retrieve the pre-loaded catalogue and wire it up
@@ -309,8 +317,9 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
              */
             String datasetId = params.getMandatoryString("DATASET");
             Dataset dataset = tamsatCatalogue.getDatasetFromId(datasetId);
-            if(dataset == null) {
-                throw new ServletException("Data is not yet loaded on the server - please try again in 5 minutes");
+            if (dataset == null) {
+                throw new ServletException(
+                        "Data is not yet loaded on the server - please try again in 5 minutes");
             }
             Set<String> varIds = dataset.getVariableIds();
             DateTime startTime = null;
@@ -419,6 +428,14 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished 
 
         saveCompletedJobList();
         saveSubmittedJobList();
+    }
+
+    public List<FinishedJobState> getFinishedJobs() {
+        return finishedJobs;
+    }
+
+    public Map<String, SubsetRequestParams> getQueuedJobs() {
+        return submittedJobs;
     }
 
     private synchronized void addFinishedJob(FinishedJobState state) {
