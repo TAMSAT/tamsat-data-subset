@@ -51,7 +51,51 @@ window.onload = function() {
         checkLimits(lon);
     })
 
+    populateTimes();
+    populateCountries();
 
+    // This is normally handled by the fact that datatypeSelected is bound to the
+    // change event of all of the radio buttons.
+    // However, running it manually here takes care of the situation where we've
+    // chosen a region option, submitted, and used browser history to go back.
+    // Without this, in that situation, a region is picked on the radio button,
+    // but lat/lon boxes for a point are displayed.
+    if(document.getElementById('pointChoice').checked) {
+        datatypeSelected('point');
+    } else {
+        datatypeSelected('region');
+    }
+}
+
+// Gets called when radio button denoting data type changes.
+// This shows / hides the appropriate spatial selector
+function datatypeSelected(value) {
+    if (value == 'point') {
+        document.getElementById('pointSelection').style.display = 'block';
+        document.getElementById('regionSelection').style.display = 'none';
+    } else {
+        document.getElementById('pointSelection').style.display = 'none';
+        document.getElementById('regionSelection').style.display = 'block';
+    }
+}
+
+function regionSelected(value) {
+    if(value == 'BOUNDS') {
+        document.getElementById('bounds').style.display = 'block';
+    } else {
+        document.getElementById('bounds').style.display = 'none';
+    }
+}
+
+function validateForm() {
+    if (!document.getElementById('email').value ||
+        !document.getElementById('ref').value) {
+        window.alert('You must enter an email address and a job reference.');
+        return false;
+    }
+}
+
+function populateTimes() {
     var xhr = new XMLHttpRequest();
     xhr.open("GET", "data?REQUEST=GETTIMES&DATASET=tamsat", true);
     xhr.onload = function(e) {
@@ -103,36 +147,26 @@ window.onload = function() {
         console.error(xhr.statusText);
     };
     xhr.send(null);
-
-    // This is normally handled by the fact that datatypeSelected is bound to the
-    // change event of all of the radio buttons.
-    // However, running it manually here takes care of the situation where we've
-    // chosen a region option, submitted, and used browser history to go back.
-    // Without this, in that situation, a region is picked on the radio button,
-    // but lat/lon boxes for a point are displayed.
-    if(document.getElementById('pointChoice').checked) {
-        datatypeSelected('point');
-    } else {
-        datatypeSelected('region');
-    }
 }
 
-// Gets called when radio button denoting data type changes.
-// This shows / hides the appropriate spatial selector
-function datatypeSelected(value) {
-    if (value == 'point') {
-        document.getElementById('pointSelection').style.display = 'block';
-        document.getElementById('regionSelection').style.display = 'none';
-    } else {
-        document.getElementById('pointSelection').style.display = 'none';
-        document.getElementById('regionSelection').style.display = 'block';
-    }
-}
+function populateCountries() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "data?REQUEST=GETCOUNTRIES", true);
+    xhr.onload = function(e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                var countries = JSON.parse(xhr.responseText);
+                countries.sort();
+                var countrySel = document.getElementById('regionSelect');
 
-function validateForm() {
-    if (!document.getElementById('email').value ||
-        !document.getElementById('ref').value) {
-        window.alert('You must enter an email address and a job reference.');
-        return false;
-    }
+                for(var i = 0; i < countries.length; i++) {
+                    countrySel.appendChild(new Option(countries[i], countries[i]));
+                }
+            }
+        }
+    };
+    xhr.onerror = function(e) {
+        console.error(xhr.statusText);
+    };
+    xhr.send(null);
 }

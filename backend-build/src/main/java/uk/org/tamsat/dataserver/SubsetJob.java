@@ -32,6 +32,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,11 +49,10 @@ import uk.ac.rdg.resc.edal.dataset.cdm.CdmGridFeatureWrite;
 import uk.ac.rdg.resc.edal.exceptions.EdalException;
 import uk.ac.rdg.resc.edal.feature.GridFeature;
 import uk.ac.rdg.resc.edal.feature.PointSeriesFeature;
-import uk.ac.rdg.resc.edal.geometry.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.Polygon;
 import uk.ac.rdg.resc.edal.grid.GridCell2D;
 import uk.ac.rdg.resc.edal.grid.HorizontalGrid;
 import uk.ac.rdg.resc.edal.grid.TimeAxis;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.util.Array1D;
 import uk.ac.rdg.resc.edal.util.Array4D;
 import uk.ac.rdg.resc.edal.util.GridCoordinates2D;
@@ -86,7 +86,8 @@ public class SubsetJob implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         /*
-         * TODO - Need to handle crashes in running jobs
+         * TODO - Need to handle crashes in running jobs TODO - Really. Need to
+         * handle crashes
          */
 
         log.debug("Running job " + params.hashCode());
@@ -95,7 +96,7 @@ public class SubsetJob implements Callable<Integer> {
          */
         File outputFile = new File(dataDir, params.getJobId());
 
-        BoundingBox bbox = params.getBbox();
+        Polygon bounds = params.getBounds();
         Set<String> varIds = dataset.getVariableIds();
         if (params.isNetCDF()) {
             /*
@@ -103,14 +104,18 @@ public class SubsetJob implements Callable<Integer> {
              * 
              * Subset the feature and write to disk
              */
-            GridFeature subset = dataset.subsetFeatures(varIds, bbox, null, params.getTimeRange());
+            GridFeature subset = dataset.subsetFeatures(varIds, bounds.getBoundingBox(), null,
+                    params.getTimeRange());
+
             /*
-             * TODO - Do we want the possibility of masking to a country shape?
-             * 
-             * If so, we need to take that as an argument somehow, then mask out
-             * the extra data. For a first version, just do the MBRs client-side
+             * Now get mask for data which is not part of the requested Polygon
              */
-            CdmGridFeatureWrite.gridFeatureToNetCDF(subset, outputFile);
+            Set<GridCoordinates2D> cellsToMask = null;
+            if (params.isCountry()) {
+                cellsToMask = getCellsToMask(subset.getDomain().getHorizontalGrid(), bounds);
+            }
+
+            CdmGridFeatureWrite.gridFeatureToNetCDF(subset, outputFile, cellsToMask);
         } else {
             /*
              * We want a timeseries as CSV
@@ -130,14 +135,14 @@ public class SubsetJob implements Callable<Integer> {
                 /*
                  * Now deal with point / area distinction
                  */
-                if (bbox.getWidth() == 0 && bbox.getHeight() == 0) {
+                if (params.isPoint()) {
                     /*
                      * We want a timeseries at a point, so extract with the
                      * 0-size bounding box.
                      */
                     List<? extends PointSeriesFeature> timeseriesFeatures = dataset
-                            .extractTimeseriesFeatures(varIds, bbox, null, params.getTimeRange(),
-                                    null, null);
+                            .extractTimeseriesFeatures(varIds, bounds.getBoundingBox(), null,
+                                    params.getTimeRange(), null, null);
                     /*
                      * This is a timeseries at a point so it should only contain
                      * one feature
@@ -175,12 +180,12 @@ public class SubsetJob implements Callable<Integer> {
                      * if not all vars on the same grid, and will take care of
                      * partial overlaps)
                      */
-                    GridFeature subset = dataset.subsetFeatures(varIds, bbox, null,
-                            params.getTimeRange());
+                    GridFeature subset = dataset.subsetFeatures(varIds, bounds.getBoundingBox(),
+                            null, params.getTimeRange());
 
                     HorizontalGrid grid = subset.getDomain().getHorizontalGrid();
 
-                    Map<GridCoordinates2D, Double> weights = getWeightedOverlaps(grid, bbox);
+                    Set<GridCoordinates2D> cellsToMask = getCellsToMask(grid, bounds);
 
                     /*
                      * Store the value arrays for each variable
@@ -203,20 +208,25 @@ public class SubsetJob implements Callable<Integer> {
                          */
                         for (String var : varIds) {
                             double totalVal = 0;
-                            double totalWeight = 0;
+                            int totalWeight = 0;
 
                             Array4D<Number> vals = var2Vals.get(var);
                             for (int i = 0; i < vals.getXSize(); i++) {
                                 for (int j = 0; j < vals.getYSize(); j++) {
                                     GridCoordinates2D gc = new GridCoordinates2D(i, j);
                                     /*
-                                     * The weight of the area
+                                     * If this cell is masked, ignore it 
                                      */
-                                    double weight = weights.get(gc);
+                                    if(cellsToMask.contains(gc)) {
+                                        continue;
+                                    }
+                                    /*
+                                     * Otherwise add it to the count if it has a value
+                                     */
                                     Number val = vals.get(t, 0, j, i);
                                     if (val != null) {
-                                        totalVal += weight * val.doubleValue();
-                                        totalWeight += weight;
+                                        totalVal += val.doubleValue();
+                                        totalWeight ++;
                                     }
                                 }
                             }
@@ -229,9 +239,7 @@ public class SubsetJob implements Callable<Integer> {
         }
 
         log.debug("Job " + params.hashCode() + " completed");
-        /*
-         * TODO pick a better output filename
-         */
+
         FinishedJobState finishedJobState = new FinishedJobState(params, outputFile);
         callback.jobFinished(finishedJobState);
 
@@ -239,66 +247,86 @@ public class SubsetJob implements Callable<Integer> {
     }
 
     /**
-     * Retrieves all
+     * Retrieves weights for {@link GridCoordinates2D} depending on whether they
+     * fall within the supplied {@link Polygon}. "Weights" are either 1 or 0, we
+     * do not calculate a full weighted overlap.
      * 
      * @param grid
+     *            The {@link HorizontalGrid} to calculate weights for
      * @param bbox
-     * @return
+     *            The {@link Polygon} to calculate weights from
+     * @return A {@link Map} of the {@link GridCoordinates2D} to their
+     *         corresponding weights
      */
-    private static Map<GridCoordinates2D, Double> getWeightedOverlaps(HorizontalGrid grid,
-            BoundingBox bbox) {
-        Map<GridCoordinates2D, Double> ret = new HashMap<>();
+    private static Set<GridCoordinates2D> getCellsToMask(HorizontalGrid grid,
+            Polygon bbox) {
+        Set<GridCoordinates2D> ret = new HashSet<>();
 
         grid.getDomainObjects().forEach(new Consumer<GridCell2D>() {
             @Override
             public void accept(GridCell2D cell) {
-                if (!(cell.getFootprint() instanceof BoundingBox)) {
-                    throw new EdalException("Grid cell is non-rectangular");
-                }
-                BoundingBox footprint = (BoundingBox) cell.getFootprint();
-                boolean hasAll = true;
-                boolean hasNone = true;
-
-                for (HorizontalPosition v : footprint.getVertices()) {
-                    if (bbox.contains(v)) {
-                        hasNone = false;
-                    } else {
-                        hasAll = false;
-                    }
-                }
-                if (hasAll) {
-                    /*
-                     * All vertices are within the bounding box
-                     */
-                    ret.put(cell.getGridCoordinates(), 1.0);
-                } else if (!hasNone) {
-                    /*
-                     * Some vertices are within the bounding box - calculate the
-                     * weight.
-                     * 
-                     * TODO This ignores cases where the bounding box is smaller
-                     * in (at least) one dimension than the cell itself. In
-                     * practice this is practically guaranteed.
-                     */
-                    double weight = 1.0;
-
-                    if (footprint.getMinX() < bbox.getMinX()) {
-                        weight *= (bbox.getMinX() - footprint.getMinX()) / footprint.getWidth();
-                    }
-                    if (footprint.getMaxX() > bbox.getMaxX()) {
-                        weight *= 1.0
-                                - (footprint.getMaxX() - bbox.getMaxX()) / footprint.getWidth();
-                    }
-                    if (footprint.getMinY() < bbox.getMinY()) {
-                        weight *= (bbox.getMinY() - footprint.getMinY()) / footprint.getHeight();
-                    }
-                    if (footprint.getMaxY() > bbox.getMaxY()) {
-                        weight *= 1.0
-                                - (footprint.getMaxY() - bbox.getMaxY()) / footprint.getHeight();
-                    }
-                    ret.put(cell.getGridCoordinates(), weight);
+                if (!bbox.contains(cell.getCentre())) {
+                    ret.add(cell.getGridCoordinates());
                 }
             }
+
+            /*
+             * Previously this method calculated full weights for a region
+             * within a bounding box.
+             * 
+             * Requirements have changed and the accuracy of full weights is not
+             * required, BUT we want a more general inclusion method. The
+             * previous implementation is included below for reference.
+             */
+//            @Override
+//            public void accept(GridCell2D cell) {
+//                if (!(cell.getFootprint() instanceof BoundingBox)) {
+//                    throw new EdalException("Grid cell is non-rectangular");
+//                }
+//                BoundingBox footprint = (BoundingBox) cell.getFootprint();
+//                boolean hasAll = true;
+//                boolean hasNone = true;
+//
+//                for (HorizontalPosition v : footprint.getVertices()) {
+//                    if (bbox.contains(v)) {
+//                        hasNone = false;
+//                    } else {
+//                        hasAll = false;
+//                    }
+//                }
+//                if (hasAll) {
+//                    /*
+//                     * All vertices are within the bounding box
+//                     */
+//                    ret.put(cell.getGridCoordinates(), 1.0);
+//                } else if (!hasNone) {
+//                    /*
+//                     * Some vertices are within the bounding box - calculate the
+//                     * weight.
+//                     * 
+//                     * TO_NOT_DO This ignores cases where the bounding box is smaller
+//                     * in (at least) one dimension than the cell itself. In
+//                     * practice this is practically guaranteed.
+//                     */
+//                    double weight = 1.0;
+//
+//                    if (footprint.getMinX() < bbox.getMinX()) {
+//                        weight *= (bbox.getMinX() - footprint.getMinX()) / footprint.getWidth();
+//                    }
+//                    if (footprint.getMaxX() > bbox.getMaxX()) {
+//                        weight *= 1.0
+//                                - (footprint.getMaxX() - bbox.getMaxX()) / footprint.getWidth();
+//                    }
+//                    if (footprint.getMinY() < bbox.getMinY()) {
+//                        weight *= (bbox.getMinY() - footprint.getMinY()) / footprint.getHeight();
+//                    }
+//                    if (footprint.getMaxY() > bbox.getMaxY()) {
+//                        weight *= 1.0
+//                                - (footprint.getMaxY() - bbox.getMaxY()) / footprint.getHeight();
+//                    }
+//                    ret.put(cell.getGridCoordinates(), weight);
+//                }
+//            }
         });
 
         return ret;

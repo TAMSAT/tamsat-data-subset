@@ -28,12 +28,13 @@
 
 package uk.org.tamsat.dataserver;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,6 +56,7 @@ import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.joda.time.DateTime;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +65,9 @@ import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
 import uk.ac.rdg.resc.edal.dataset.Dataset;
 import uk.ac.rdg.resc.edal.domain.Extent;
 import uk.ac.rdg.resc.edal.domain.TemporalDomain;
+import uk.ac.rdg.resc.edal.geometry.Polygon;
+import uk.ac.rdg.resc.edal.geometry.SimplePolygon;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.util.GISUtils;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
 import uk.org.tamsat.dataserver.SubsetJob.JobFinished;
@@ -83,6 +88,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
     private ExecutorService jobQueue;
     private ScheduledExecutorService cleaner;
 
+    private Map<String, Polygon> countryBounds;
     private DataCatalogue tamsatCatalogue;
 
     private File dataDir;
@@ -94,7 +100,6 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
     private VelocityEngine velocityEngine;
 
     private static final Logger log = LoggerFactory.getLogger(TamsatDataSubsetServlet.class);
-
     @Override
     @SuppressWarnings("unchecked")
     public void init(ServletConfig servletConfig) throws ServletException {
@@ -265,6 +270,37 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         cleaner.scheduleWithFixedDelay(cleanupJob, 15, 15, TimeUnit.MINUTES);
 
         log.debug("Data subset servlet started");
+
+        countryBounds = new HashMap<>();
+        try {
+            InputStream countries = getClass().getResourceAsStream("/africa_countries.dat");
+            BufferedReader r = new BufferedReader(new InputStreamReader(countries));
+            String line;
+            String currentCountry = null;
+            List<HorizontalPosition> vertices = new ArrayList<>();
+            while ((line = r.readLine()) != null) {
+                if (line.startsWith("#")) {
+                    if (vertices.size() > 0) {
+                        /*
+                         * We have just finished parsing the previous country.
+                         * This will be the case for all but the 1st one.
+                         */
+                        countryBounds.put(currentCountry.toUpperCase(), new SimplePolygon(vertices));
+                        vertices = new ArrayList<>();
+                    }
+                    
+                    currentCountry = line.substring(1);
+                } else {
+                    String[] posParts = line.split(",");
+                    vertices.add(new HorizontalPosition(Double.parseDouble(posParts[0]),
+                            Double.parseDouble(posParts[1])));
+                }
+            }
+        } catch (IOException e) {
+            log.warn(
+                    "Problem reading list of country bounds.  Not all countries will be available to subset");
+        }
+
     }
 
     @Override
@@ -310,6 +346,18 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             } catch (Exception e) {
                 log.error("Problem returning joblist", e);
                 throw new ServletException("Problem returning job list", e);
+            }
+        } else if (method.equalsIgnoreCase("GETCOUNTRIES")) {
+            JSONArray countries = new JSONArray();
+            for(String country : countryBounds.keySet()) {
+                countries.put(country);
+            }
+            resp.setContentType("application/json");
+            try {
+                resp.getWriter().write(countries.toString());
+            } catch (IOException e) {
+                log.error("Problem writing country list to output stream", e);
+                throw new ServletException("Problem writing JSON to output stream", e);
             }
         } else if (method.equalsIgnoreCase("GETTIMES")) {
             /*
@@ -389,7 +437,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
              * Parse required parameters. This will throw an exception if they
              * are not present
              */
-            subsetParams = new SubsetRequestParams(req);
+            subsetParams = new SubsetRequestParams(req, countryBounds);
 
             /*
              * Add the job to the queue
@@ -472,29 +520,29 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
      * Saves the list of finished jobs to disk
      */
     private synchronized void saveCompletedJobList() {
-        try (FileOutputStream fos = new FileOutputStream(
-                new File(dataDir, COMPLETED_JOBLIST_FILENAME));
-                ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-            oos.writeObject(finishedJobs);
-            log.debug("Completed job list written to file");
-        } catch (IOException e) {
-            log.error(
-                    "Problem writing completed job list.  Persistence will not work across restarts");
-        }
+//        try (FileOutputStream fos = new FileOutputStream(
+//                new File(dataDir, COMPLETED_JOBLIST_FILENAME));
+//                ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+//            oos.writeObject(finishedJobs);
+//            log.debug("Completed job list written to file");
+//        } catch (IOException e) {
+//            log.error(
+//                    "Problem writing completed job list.  Persistence will not work across restarts");
+//        }
     }
 
     /**
      * Saves the list of submitted (but not completed) jobs to disk
      */
     private synchronized void saveSubmittedJobList() {
-        try (FileOutputStream fos = new FileOutputStream(
-                new File(dataDir, SUBMITTED_JOBLIST_FILENAME));
-                ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-            oos.writeObject(submittedJobs);
-            log.debug("Running job list written to file");
-        } catch (IOException e) {
-            log.error(
-                    "Problem writing running job list.  Persistence will not work across restarts");
-        }
+//        try (FileOutputStream fos = new FileOutputStream(
+//                new File(dataDir, SUBMITTED_JOBLIST_FILENAME));
+//                ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+//            oos.writeObject(submittedJobs);
+//            log.debug("Running job list written to file");
+//        } catch (IOException e) {
+//            log.error(
+//                    "Problem writing running job list.  Persistence will not work across restarts", e);
+//        }
     }
 }

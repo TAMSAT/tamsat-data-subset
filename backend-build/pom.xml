@@ -8,7 +8,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <iea.url>http://www.the-iea.org</iea.url>
-        <edal.version>1.2.13</edal.version>
+        <edal.version>1.3.2-SNAPSHOT</edal.version>
     </properties>
 
     <packaging>war</packaging>

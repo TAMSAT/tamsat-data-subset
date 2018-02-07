@@ -29,6 +29,7 @@
 package uk.org.tamsat.dataserver;
 
 import java.io.Serializable;
+import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -36,35 +37,58 @@ import org.joda.time.DateTime;
 import org.joda.time.chrono.ISOChronology;
 
 import uk.ac.rdg.resc.edal.domain.Extent;
-import uk.ac.rdg.resc.edal.geometry.BoundingBox;
+import uk.ac.rdg.resc.edal.exceptions.IncorrectDomainException;
 import uk.ac.rdg.resc.edal.geometry.BoundingBoxImpl;
+import uk.ac.rdg.resc.edal.geometry.Polygon;
 import uk.ac.rdg.resc.edal.util.Extents;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
 
 public class SubsetRequestParams implements Serializable {
-    private static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 3L;
     private final String datasetId;
-    private final BoundingBox bbox;
+    private final boolean isPoint;
+    private boolean isCountry = false;
+    private final Polygon bounds;
     private final Extent<DateTime> timeRange;
     private final boolean getNetcdf;
     private final JobReference jobRef;
     private String filename;
+    private String countryStr;
 
-    public SubsetRequestParams(HttpServletRequest req) {
+    public SubsetRequestParams(HttpServletRequest req, Map<String, Polygon> countryBounds) {
         TamsatRequestParams params = new TamsatRequestParams(req.getParameterMap());
         datasetId = params.getMandatoryString("DATASET");
         String datatype = params.getMandatoryString("DATATYPE");
         getNetcdf = datatype.equalsIgnoreCase("netcdf");
+        final String boundsStr;
         if (datatype.equalsIgnoreCase("point")) {
             double lon = params.getDouble("LON", 0f);
             double lat = params.getDouble("LAT", 0f);
-            bbox = new BoundingBoxImpl(lon, lat, lon, lat);
+            bounds = new BoundingBoxImpl(lon, lat, lon, lat);
+            isPoint = true;
+            boundsStr = lat + "_" + lon;
         } else {
-            double minLon = params.getDouble("MINLON", 0f);
-            double minLat = params.getDouble("MINLAT", 0f);
-            double maxLon = params.getDouble("MAXLON", 0f);
-            double maxLat = params.getDouble("MAXLAT", 0f);
-            bbox = new BoundingBoxImpl(minLon, minLat, maxLon, maxLat);
+            countryStr = params.getString("COUNTRY", "BOUNDS").toUpperCase();
+            if ("BOUNDS".equals(countryStr)) {
+                /*
+                 * TODO Better interface than this?
+                 */
+                double minLon = params.getDouble("MINLON", 0f);
+                double minLat = params.getDouble("MINLAT", 0f);
+                double maxLon = params.getDouble("MAXLON", 0f);
+                double maxLat = params.getDouble("MAXLAT", 0f);
+                bounds = new BoundingBoxImpl(minLon, minLat, maxLon, maxLat);
+                boundsStr = minLon + "_" + maxLon + "_" + minLat + "_" + maxLat;
+            } else {
+                bounds = countryBounds.get(countryStr);
+                boundsStr = countryStr.toLowerCase().replaceAll(" ", "_");
+                isCountry = true;
+                if (bounds == null) {
+                    throw new IncorrectDomainException(
+                            "No boundary defined for the country: " + countryStr);
+                }
+            }
+            isPoint = false;
         }
         DateTime startTime = TimeUtils.iso8601ToDateTime(params.getMandatoryString("STARTTIME"),
                 ISOChronology.getInstanceUTC());
@@ -74,10 +98,7 @@ public class SubsetRequestParams implements Serializable {
         String email = params.getMandatoryString("EMAIL");
         String ref = params.getMandatoryString("REF");
         filename = datasetId + "-" + timeRange.getLow().getMillis() / 1000L + "-"
-                + timeRange.getHigh().getMillis() / 1000L + "_"
-                + (bbox.getWidth() == 0 ? (bbox.getMinX() + "_" + bbox.getMinY())
-                        : (bbox.getMinX() + "_" + bbox.getMaxX() + "_" + bbox.getMinY() + "_"
-                                + bbox.getMaxY()))
+                + timeRange.getHigh().getMillis() / 1000L + "_" + boundsStr
                 + (getNetcdf ? ".nc" : ".csv");
         jobRef = new JobReference(email, ref);
     }
@@ -90,7 +111,7 @@ public class SubsetRequestParams implements Serializable {
     public String getJobId() {
         return filename + jobRef.hashCode();
     }
-    
+
     public String getFilename() {
         return filename;
     }
@@ -99,8 +120,20 @@ public class SubsetRequestParams implements Serializable {
         return datasetId;
     }
 
-    public BoundingBox getBbox() {
-        return bbox;
+    public boolean isPoint() {
+        return isPoint;
+    }
+
+    public boolean isCountry() {
+        return isCountry;
+    }
+
+    public String getCountry() {
+        return countryStr;
+    }
+
+    public Polygon getBounds() {
+        return bounds;
     }
 
     public Extent<DateTime> getTimeRange() {
@@ -117,52 +150,7 @@ public class SubsetRequestParams implements Serializable {
 
     @Override
     public String toString() {
-        return (getNetcdf ? "NetCDF: " : "CSV: ") + datasetId + ", " + bbox + ", " + timeRange;
+        return (getNetcdf ? "NetCDF: " : "CSV: ") + datasetId + ", " + bounds + ", " + timeRange;
     }
 
-    /*
-     * hashCode() and equals() ignore email - this way, two identical subset
-     * requests with different emails do not necessarily need to be performed
-     * twice
-     */
-
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((bbox == null) ? 0 : bbox.hashCode());
-        result = prime * result + ((datasetId == null) ? 0 : datasetId.hashCode());
-        result = prime * result + (getNetcdf ? 1231 : 1237);
-        result = prime * result + ((timeRange == null) ? 0 : timeRange.hashCode());
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        SubsetRequestParams other = (SubsetRequestParams) obj;
-        if (bbox == null) {
-            if (other.bbox != null)
-                return false;
-        } else if (!bbox.equals(other.bbox))
-            return false;
-        if (datasetId == null) {
-            if (other.datasetId != null)
-                return false;
-        } else if (!datasetId.equals(other.datasetId))
-            return false;
-        if (getNetcdf != other.getNetcdf)
-            return false;
-        if (timeRange == null) {
-            if (other.timeRange != null)
-                return false;
-        } else if (!timeRange.equals(other.timeRange))
-            return false;
-        return true;
-    }
 }

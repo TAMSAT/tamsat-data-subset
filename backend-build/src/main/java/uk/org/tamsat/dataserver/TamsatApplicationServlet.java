@@ -47,10 +47,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
-import uk.ac.rdg.resc.edal.catalogue.SimpleLayerNameMapper;
 import uk.ac.rdg.resc.edal.catalogue.jaxb.CatalogueConfig;
 import uk.ac.rdg.resc.edal.dataset.DatasetFactory;
 import uk.ac.rdg.resc.edal.dataset.cdm.CdmGridDatasetFactory;
+import uk.ac.rdg.resc.edal.graphics.utils.SimpleLayerNameMapper;
 import uk.ac.rdg.resc.edal.util.GISUtils.EpsgDatabasePath;
 
 /**

@@ -75,11 +75,13 @@ public class FinishedJobState implements Serializable {
         } else {
             sb.append("Timeseries of ");
         }
-        if(params.getBbox().getWidth() != 0) {
-            sb.append("region:<br />"+params.getBbox());
-        } else {
-            HorizontalPosition pos = params.getBbox().getLowerCorner();
+        if(params.isPoint()) {
+            HorizontalPosition pos = params.getBounds().getBoundingBox().getLowerCorner();
             sb.append("(Lat: "+pos.getY()+", Lon: "+pos.getX()+")");
+        } else if(params.isCountry()){
+            sb.append("region:<br />"+params.getCountry());
+        } else {
+            sb.append("region:<br />"+params.getBounds());
         }
         sb.append("<br />Between "+TimeUtils.formatUtcDateOnly(params.getTimeRange().getLow())+" and ");
         sb.append(TimeUtils.formatUtcDateOnly(params.getTimeRange().getHigh()));

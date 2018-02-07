@@ -39,11 +39,17 @@
                 </div>
                 <div id="regionSelection" hidden>
                     <!-- Could add dropdown of countries here, with Bounding Box being the first option... -->
-                    <label>Bounding Box:</label><br />
-                    <input id="maxLat" type="number" name="maxLat" min=-35 max=39 value=10 step="any" /><br />
-                    <input id="minLon" type="number" name="minLon" min=-20 max=52 value=-10 step="any" />
-                    <input id="maxLon" type="number" name="maxLon" min=-20 max=52 value=10 step="any" /><br />
-                    <input id="minLat" type="number" name="minLat" min=-35 max=39 value=-10 step="any" />
+                    <label>Region:</label>
+                    <select name="country" id="regionSelect" onchange="regionSelected(value)">
+                        <option value="BOUNDS">Bounding Box</option>
+                        <option disabled>--------------</option>
+                    </select><br />
+                    <div id="bounds">
+                        <input id="maxLat" type="number" name="maxLat" min=-35 max=39 value=10 step="any" /><br />
+                        <input id="minLon" type="number" name="minLon" min=-20 max=52 value=-10 step="any" />
+                        <input id="maxLon" type="number" name="maxLon" min=-20 max=52 value=10 step="any" /><br />
+                        <input id="minLat" type="number" name="minLat" min=-35 max=39 value=-10 step="any" />
+                    </div>
                 </div>
             </div>
             <div class="tamsat-form-section">
@@ -66,9 +72,7 @@
         </form>
     </div>
     <div id="not_loaded" style="display:none;">
-        The data has not yet loaded on the server.  Please try again in 5 minutes.<br />
-        If this message persists, please contact the server administrator - there may
-        be an error.
+        The data has not yet loaded on the server. Please try again in 5 minutes.<br /> If this message persists, please contact the server administrator - there may be an error.
     </div>
 
 
