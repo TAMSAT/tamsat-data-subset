@@ -34,7 +34,7 @@
     <br />
     Note that jobs are available for download for 7 days after completion, or 24 hours after it has been downloaded for the first time.
 #else
-    To see job list, enter your email address below.
+    To see job list, enter your email address and the job reference below.
 
     <form method="get" action="data">
         <div class="tamsat-form-section">

@@ -42,6 +42,7 @@ public class FinishedJobState implements Serializable {
     private long downloadedTime;
     private long completedTime;
     private boolean downloaded = false;
+    private Exception exception = null;
 
     public FinishedJobState(SubsetRequestParams params, File fileLocation) {
         this.params = params;
@@ -50,6 +51,13 @@ public class FinishedJobState implements Serializable {
         outputFilename = params.getFilename();
         downloadedTime = -1L;
         completedTime = System.currentTimeMillis();
+    }
+    
+    public FinishedJobState(SubsetRequestParams params, Exception exception) {
+        this.params = params;
+        this.exception = exception;
+        fileLocation = null;
+        outputFilename = null;
     }
     
     public String getId() {
@@ -79,7 +87,7 @@ public class FinishedJobState implements Serializable {
             HorizontalPosition pos = params.getBounds().getBoundingBox().getLowerCorner();
             sb.append("(Lat: "+pos.getY()+", Lon: "+pos.getX()+")");
         } else if(params.isCountry()){
-            sb.append("region:<br />"+params.getCountry());
+            sb.append(params.getCountry());
         } else {
             sb.append("region:<br />"+params.getBounds());
         }
@@ -103,5 +111,13 @@ public class FinishedJobState implements Serializable {
     
     public boolean wasDownloaded() {
         return downloaded;
+    }
+    
+    public boolean success() {
+        return exception == null;
+    }
+    
+    public Exception getException() {
+        return exception;
     }
 }

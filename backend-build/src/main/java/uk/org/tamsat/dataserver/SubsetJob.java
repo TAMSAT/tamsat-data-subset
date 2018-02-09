@@ -84,166 +84,179 @@ public class SubsetJob implements Callable<Integer> {
     }
 
     @Override
-    public Integer call() throws Exception {
+    public Integer call() {
         /*
          * TODO - Need to handle crashes in running jobs TODO - Really. Need to
          * handle crashes
          */
-
-        log.debug("Running job " + params.hashCode());
-        /*
-         * Do the subsetting and save the file
-         */
-        File outputFile = new File(dataDir, params.getJobId());
-
-        Polygon bounds = params.getBounds();
-        Set<String> varIds = dataset.getVariableIds();
-        if (params.isNetCDF()) {
+        try {
+            log.debug("Running job " + params.hashCode());
             /*
-             * We want a subset as NetCDF
-             * 
-             * Subset the feature and write to disk
+             * Do the subsetting and save the file
              */
-            GridFeature subset = dataset.subsetFeatures(varIds, bounds.getBoundingBox(), null,
-                    params.getTimeRange());
+            File outputFile = new File(dataDir, params.getJobId());
 
-            /*
-             * Now get mask for data which is not part of the requested Polygon
-             */
-            Set<GridCoordinates2D> cellsToMask = null;
-            if (params.isCountry()) {
-                cellsToMask = getCellsToMask(subset.getDomain().getHorizontalGrid(), bounds);
-            }
-
-            CdmGridFeatureWrite.gridFeatureToNetCDF(subset, outputFile, cellsToMask);
-        } else {
-            /*
-             * We want a timeseries as CSV
-             */
-
-            try (BufferedWriter w = new BufferedWriter(new FileWriter(outputFile))) {
+            Polygon bounds = params.getBounds();
+            Set<String> varIds = dataset.getVariableIds();
+            if (params.isNetCDF()) {
                 /*
-                 * The CSV header will be the same whether this is single-cell
-                 * or area-averaged
+                 * We want a subset as NetCDF
+                 * 
+                 * Subset the feature and write to disk
                  */
-                StringBuilder line = new StringBuilder("time,");
-                for (String var : varIds) {
-                    line.append(var + ",");
+                GridFeature subset = dataset.subsetFeatures(varIds, bounds.getBoundingBox(), null,
+                        params.getTimeRange());
+
+                /*
+                 * Now get mask for data which is not part of the requested
+                 * Polygon
+                 */
+                Set<GridCoordinates2D> cellsToMask = null;
+                if (params.isCountry()) {
+                    cellsToMask = getCellsToMask(subset.getDomain().getHorizontalGrid(), bounds);
                 }
-                w.write(line.substring(0, line.length() - 1) + "\n");
 
+                CdmGridFeatureWrite.gridFeatureToNetCDF(subset, outputFile, cellsToMask);
+            } else {
                 /*
-                 * Now deal with point / area distinction
+                 * We want a timeseries as CSV
                  */
-                if (params.isPoint()) {
-                    /*
-                     * We want a timeseries at a point, so extract with the
-                     * 0-size bounding box.
-                     */
-                    List<? extends PointSeriesFeature> timeseriesFeatures = dataset
-                            .extractTimeseriesFeatures(varIds, bounds.getBoundingBox(), null,
-                                    params.getTimeRange(), null, null);
-                    /*
-                     * This is a timeseries at a point so it should only contain
-                     * one feature
-                     */
-                    if (timeseriesFeatures.size() > 1) {
-                        throw new EdalException(
-                                "Multiple time series found at a point.  This is an error");
-                    }
-                    PointSeriesFeature feature = timeseriesFeatures.get(0);
 
+                try (BufferedWriter w = new BufferedWriter(new FileWriter(outputFile))) {
                     /*
-                     * Store the value arrays for each variable
+                     * The CSV header will be the same whether this is
+                     * single-cell or area-averaged
                      */
-                    Map<String, Array1D<Number>> var2Vals = new HashMap<>();
+                    StringBuilder line = new StringBuilder("time,");
                     for (String var : varIds) {
-                        var2Vals.put(var, feature.getValues(var));
+                        line.append(var + ",");
                     }
+                    w.write(line.substring(0, line.length() - 1) + "\n");
 
                     /*
-                     * Now write out time series
+                     * Now deal with point / area distinction
                      */
-                    TimeAxis timeAxis = feature.getDomain();
-                    for (int i = 0; i < timeAxis.size(); i++) {
-                        line = new StringBuilder(
-                                TimeUtils.dateTimeToISO8601(timeAxis.getCoordinateValue(i)) + ",");
-                        for (String var : varIds) {
-                            line.append(var2Vals.get(var).get(i) + ",");
+                    if (params.isPoint()) {
+                        /*
+                         * We want a timeseries at a point, so extract with the
+                         * 0-size bounding box.
+                         */
+                        List<? extends PointSeriesFeature> timeseriesFeatures = dataset
+                                .extractTimeseriesFeatures(varIds, bounds.getBoundingBox(), null,
+                                        params.getTimeRange(), null, null);
+                        /*
+                         * This is a timeseries at a point so it should only
+                         * contain one feature
+                         */
+                        if (timeseriesFeatures.size() > 1) {
+                            throw new EdalException(
+                                    "Multiple time series found at a point.  This is an error");
                         }
-                        w.write(line.substring(0, line.length() - 1) + "\n");
-                    }
-                } else {
-                    /*
-                     * Subset into a single GridFeature to ensure a common grid,
-                     * and the minimum horizontal range (will throw an exception
-                     * if not all vars on the same grid, and will take care of
-                     * partial overlaps)
-                     */
-                    GridFeature subset = dataset.subsetFeatures(varIds, bounds.getBoundingBox(),
-                            null, params.getTimeRange());
-
-                    HorizontalGrid grid = subset.getDomain().getHorizontalGrid();
-
-                    Set<GridCoordinates2D> cellsToMask = getCellsToMask(grid, bounds);
-
-                    /*
-                     * Store the value arrays for each variable
-                     */
-                    Map<String, Array4D<Number>> var2Vals = new HashMap<>();
-                    for (String var : varIds) {
-                        var2Vals.put(var, subset.getValues(var));
-                    }
-
-                    /*
-                     * Now write out time series
-                     */
-                    TimeAxis timeAxis = subset.getDomain().getTimeAxis();
-                    for (int t = 0; t < timeAxis.size(); t++) {
-                        line = new StringBuilder(
-                                TimeUtils.dateTimeToISO8601(timeAxis.getCoordinateValue(t)) + ",");
+                        PointSeriesFeature feature = timeseriesFeatures.get(0);
 
                         /*
-                         * For each variable, calculate the area-weighted mean
+                         * Store the value arrays for each variable
                          */
+                        Map<String, Array1D<Number>> var2Vals = new HashMap<>();
                         for (String var : varIds) {
-                            double totalVal = 0;
-                            int totalWeight = 0;
+                            var2Vals.put(var, feature.getValues(var));
+                        }
 
-                            Array4D<Number> vals = var2Vals.get(var);
-                            for (int i = 0; i < vals.getXSize(); i++) {
-                                for (int j = 0; j < vals.getYSize(); j++) {
-                                    GridCoordinates2D gc = new GridCoordinates2D(i, j);
-                                    /*
-                                     * If this cell is masked, ignore it 
-                                     */
-                                    if(cellsToMask.contains(gc)) {
-                                        continue;
-                                    }
-                                    /*
-                                     * Otherwise add it to the count if it has a value
-                                     */
-                                    Number val = vals.get(t, 0, j, i);
-                                    if (val != null) {
-                                        totalVal += val.doubleValue();
-                                        totalWeight ++;
+                        /*
+                         * Now write out time series
+                         */
+                        TimeAxis timeAxis = feature.getDomain();
+                        for (int i = 0; i < timeAxis.size(); i++) {
+                            line = new StringBuilder(
+                                    TimeUtils.dateTimeToISO8601(timeAxis.getCoordinateValue(i))
+                                            + ",");
+                            for (String var : varIds) {
+                                line.append(var2Vals.get(var).get(i) + ",");
+                            }
+                            w.write(line.substring(0, line.length() - 1) + "\n");
+                        }
+                    } else {
+                        /*
+                         * Subset into a single GridFeature to ensure a common
+                         * grid, and the minimum horizontal range (will throw an
+                         * exception if not all vars on the same grid, and will
+                         * take care of partial overlaps)
+                         */
+                        GridFeature subset = dataset.subsetFeatures(varIds, bounds.getBoundingBox(),
+                                null, params.getTimeRange());
+
+                        HorizontalGrid grid = subset.getDomain().getHorizontalGrid();
+
+                        Set<GridCoordinates2D> cellsToMask = getCellsToMask(grid, bounds);
+
+                        /*
+                         * Store the value arrays for each variable
+                         */
+                        Map<String, Array4D<Number>> var2Vals = new HashMap<>();
+                        for (String var : varIds) {
+                            var2Vals.put(var, subset.getValues(var));
+                        }
+
+                        /*
+                         * Now write out time series
+                         */
+                        TimeAxis timeAxis = subset.getDomain().getTimeAxis();
+                        for (int t = 0; t < timeAxis.size(); t++) {
+                            line = new StringBuilder(
+                                    TimeUtils.dateTimeToISO8601(timeAxis.getCoordinateValue(t))
+                                            + ",");
+
+                            /*
+                             * For each variable, calculate the area-weighted
+                             * mean
+                             */
+                            for (String var : varIds) {
+                                double totalVal = 0;
+                                int totalWeight = 0;
+
+                                Array4D<Number> vals = var2Vals.get(var);
+                                for (int i = 0; i < vals.getXSize(); i++) {
+                                    for (int j = 0; j < vals.getYSize(); j++) {
+                                        GridCoordinates2D gc = new GridCoordinates2D(i, j);
+                                        /*
+                                         * If this cell is masked, ignore it
+                                         */
+                                        if (cellsToMask.contains(gc)) {
+                                            continue;
+                                        }
+                                        /*
+                                         * Otherwise add it to the count if it
+                                         * has a value
+                                         */
+                                        Number val = vals.get(t, 0, j, i);
+                                        if (val != null) {
+                                            totalVal += val.doubleValue();
+                                            totalWeight++;
+                                        }
                                     }
                                 }
+                                line.append(totalVal / totalWeight + ",");
                             }
-                            line.append(totalVal / totalWeight + ",");
+                            w.write(line.substring(0, line.length() - 1) + "\n");
                         }
-                        w.write(line.substring(0, line.length() - 1) + "\n");
                     }
                 }
             }
+
+            log.debug("Job " + params.hashCode() + " completed");
+
+            FinishedJobState finishedJobState = new FinishedJobState(params, outputFile);
+            callback.jobFinished(finishedJobState);
+
+            return params.hashCode();
+        } catch (Exception e) {
+            log.error("Problem running job", e);
+            
+            FinishedJobState failedJobState = new FinishedJobState(params, e);
+            callback.jobFinished(failedJobState);
+            
+            return params.hashCode();
         }
-
-        log.debug("Job " + params.hashCode() + " completed");
-
-        FinishedJobState finishedJobState = new FinishedJobState(params, outputFile);
-        callback.jobFinished(finishedJobState);
-
-        return params.hashCode();
     }
 
     /**
@@ -258,8 +271,7 @@ public class SubsetJob implements Callable<Integer> {
      * @return A {@link Map} of the {@link GridCoordinates2D} to their
      *         corresponding weights
      */
-    private static Set<GridCoordinates2D> getCellsToMask(HorizontalGrid grid,
-            Polygon bbox) {
+    private static Set<GridCoordinates2D> getCellsToMask(HorizontalGrid grid, Polygon bbox) {
         Set<GridCoordinates2D> ret = new HashSet<>();
 
         grid.getDomainObjects().forEach(new Consumer<GridCell2D>() {
