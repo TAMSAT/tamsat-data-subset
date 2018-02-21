@@ -42,6 +42,19 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.vividsolutions.jts.geom.Geometry;
+
+import net.sf.ehcache.Cache;
+import net.sf.ehcache.CacheManager;
+import net.sf.ehcache.Element;
+import net.sf.ehcache.config.CacheConfiguration;
+import net.sf.ehcache.config.CacheConfiguration.TransactionalMode;
+import net.sf.ehcache.config.Configuration;
+import net.sf.ehcache.config.MemoryUnit;
+import net.sf.ehcache.config.PersistenceConfiguration;
+import net.sf.ehcache.config.PersistenceConfiguration.Strategy;
+import net.sf.ehcache.config.SizeOfPolicyConfiguration;
+import net.sf.ehcache.store.MemoryStoreEvictionPolicy;
 import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
 import uk.ac.rdg.resc.edal.dataset.Dataset;
 import uk.ac.rdg.resc.edal.dataset.GriddedDataset;
@@ -49,7 +62,7 @@ import uk.ac.rdg.resc.edal.dataset.cdm.CdmGridFeatureWrite;
 import uk.ac.rdg.resc.edal.exceptions.EdalException;
 import uk.ac.rdg.resc.edal.feature.GridFeature;
 import uk.ac.rdg.resc.edal.feature.PointSeriesFeature;
-import uk.ac.rdg.resc.edal.geometry.Polygon;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
 import uk.ac.rdg.resc.edal.grid.GridCell2D;
 import uk.ac.rdg.resc.edal.grid.HorizontalGrid;
 import uk.ac.rdg.resc.edal.grid.TimeAxis;
@@ -57,6 +70,7 @@ import uk.ac.rdg.resc.edal.util.Array1D;
 import uk.ac.rdg.resc.edal.util.Array4D;
 import uk.ac.rdg.resc.edal.util.GridCoordinates2D;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
+import uk.org.tamsat.dataserver.util.CountryDefinition;
 
 public class SubsetJob implements Callable<Integer> {
     public static interface JobFinished {
@@ -85,10 +99,6 @@ public class SubsetJob implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        /*
-         * TODO - Need to handle crashes in running jobs TODO - Really. Need to
-         * handle crashes
-         */
         try {
             log.debug("Running job " + params.hashCode());
             /*
@@ -96,7 +106,7 @@ public class SubsetJob implements Callable<Integer> {
              */
             File outputFile = new File(dataDir, params.getJobId());
 
-            Polygon bounds = params.getBounds();
+            BoundingBox bbox = params.getBoundingBox();
             Set<String> varIds = dataset.getVariableIds();
             if (params.isNetCDF()) {
                 /*
@@ -104,17 +114,20 @@ public class SubsetJob implements Callable<Integer> {
                  * 
                  * Subset the feature and write to disk
                  */
-                GridFeature subset = dataset.subsetFeatures(varIds, bounds.getBoundingBox(), null,
+                log.debug("Extracting region");
+                GridFeature subset = dataset.subsetFeatures(varIds, bbox, null,
                         params.getTimeRange());
-
                 /*
                  * Now get mask for data which is not part of the requested
                  * Polygon
                  */
                 Set<GridCoordinates2D> cellsToMask = null;
+                log.debug("Getting masked cells");
                 if (params.isCountry()) {
-                    cellsToMask = getCellsToMask(subset.getDomain().getHorizontalGrid(), bounds);
+                    cellsToMask = getCellsToMask(subset.getDomain().getHorizontalGrid(),
+                            params.getCountryDefinition());
                 }
+                log.debug("Writing to NetCDF");
 
                 CdmGridFeatureWrite.gridFeatureToNetCDF(subset, outputFile, cellsToMask);
             } else {
@@ -142,7 +155,7 @@ public class SubsetJob implements Callable<Integer> {
                          * 0-size bounding box.
                          */
                         List<? extends PointSeriesFeature> timeseriesFeatures = dataset
-                                .extractTimeseriesFeatures(varIds, bounds.getBoundingBox(), null,
+                                .extractTimeseriesFeatures(varIds, bbox, null,
                                         params.getTimeRange(), null, null);
                         /*
                          * This is a timeseries at a point so it should only
@@ -182,12 +195,15 @@ public class SubsetJob implements Callable<Integer> {
                          * exception if not all vars on the same grid, and will
                          * take care of partial overlaps)
                          */
-                        GridFeature subset = dataset.subsetFeatures(varIds, bounds.getBoundingBox(),
-                                null, params.getTimeRange());
+                        GridFeature subset = dataset.subsetFeatures(varIds, bbox, null,
+                                params.getTimeRange());
 
                         HorizontalGrid grid = subset.getDomain().getHorizontalGrid();
 
-                        Set<GridCoordinates2D> cellsToMask = getCellsToMask(grid, bounds);
+                        Set<GridCoordinates2D> cellsToMask = new HashSet<>();
+                        if (params.isCountry()) {
+                            cellsToMask = getCellsToMask(grid, params.getCountryDefinition());
+                        }
 
                         /*
                          * Store the value arrays for each variable
@@ -251,96 +267,120 @@ public class SubsetJob implements Callable<Integer> {
             return params.hashCode();
         } catch (Exception e) {
             log.error("Problem running job", e);
-            
+
             FinishedJobState failedJobState = new FinishedJobState(params, e);
             callback.jobFinished(failedJobState);
-            
+
             return params.hashCode();
         }
     }
 
     /**
-     * Retrieves weights for {@link GridCoordinates2D} depending on whether they
-     * fall within the supplied {@link Polygon}. "Weights" are either 1 or 0, we
-     * do not calculate a full weighted overlap.
+     * Finds grid cells whose centres are included in any of the supplied
+     * {@link Geometry}s
      * 
      * @param grid
      *            The {@link HorizontalGrid} to calculate weights for
-     * @param bbox
-     *            The {@link Polygon} to calculate weights from
-     * @return A {@link Map} of the {@link GridCoordinates2D} to their
-     *         corresponding weights
+     * @param countryDefinition
+     *            A {@link List} of {@link Geometry}s to check inclusion of each
+     *            cell
+     * @return A {@link Set} of the {@link GridCoordinates2D} which are included
+     *         in the given bounds
      */
-    private static Set<GridCoordinates2D> getCellsToMask(HorizontalGrid grid, Polygon bbox) {
+    @SuppressWarnings("unchecked")
+    private static Set<GridCoordinates2D> getCellsToMask(HorizontalGrid grid,
+            CountryDefinition countryDefinition) {
+        /*
+         * Get masked cells from cache if they are available. For large
+         * countries (e.g. DRC) this process can take quite a long time (say 10
+         * minutes).
+         */
+        MaskCacheKey key = new MaskCacheKey(grid, countryDefinition);
+        if (maskCache.isElementInMemory(key)) {
+            return (Set<GridCoordinates2D>) maskCache.get(key);
+        }
         Set<GridCoordinates2D> ret = new HashSet<>();
 
         grid.getDomainObjects().forEach(new Consumer<GridCell2D>() {
             @Override
             public void accept(GridCell2D cell) {
-                if (!bbox.contains(cell.getCentre())) {
+                if (!countryDefinition.contains(cell.getCentre())) {
                     ret.add(cell.getGridCoordinates());
                 }
             }
-
-            /*
-             * Previously this method calculated full weights for a region
-             * within a bounding box.
-             * 
-             * Requirements have changed and the accuracy of full weights is not
-             * required, BUT we want a more general inclusion method. The
-             * previous implementation is included below for reference.
-             */
-//            @Override
-//            public void accept(GridCell2D cell) {
-//                if (!(cell.getFootprint() instanceof BoundingBox)) {
-//                    throw new EdalException("Grid cell is non-rectangular");
-//                }
-//                BoundingBox footprint = (BoundingBox) cell.getFootprint();
-//                boolean hasAll = true;
-//                boolean hasNone = true;
-//
-//                for (HorizontalPosition v : footprint.getVertices()) {
-//                    if (bbox.contains(v)) {
-//                        hasNone = false;
-//                    } else {
-//                        hasAll = false;
-//                    }
-//                }
-//                if (hasAll) {
-//                    /*
-//                     * All vertices are within the bounding box
-//                     */
-//                    ret.put(cell.getGridCoordinates(), 1.0);
-//                } else if (!hasNone) {
-//                    /*
-//                     * Some vertices are within the bounding box - calculate the
-//                     * weight.
-//                     * 
-//                     * TO_NOT_DO This ignores cases where the bounding box is smaller
-//                     * in (at least) one dimension than the cell itself. In
-//                     * practice this is practically guaranteed.
-//                     */
-//                    double weight = 1.0;
-//
-//                    if (footprint.getMinX() < bbox.getMinX()) {
-//                        weight *= (bbox.getMinX() - footprint.getMinX()) / footprint.getWidth();
-//                    }
-//                    if (footprint.getMaxX() > bbox.getMaxX()) {
-//                        weight *= 1.0
-//                                - (footprint.getMaxX() - bbox.getMaxX()) / footprint.getWidth();
-//                    }
-//                    if (footprint.getMinY() < bbox.getMinY()) {
-//                        weight *= (bbox.getMinY() - footprint.getMinY()) / footprint.getHeight();
-//                    }
-//                    if (footprint.getMaxY() > bbox.getMaxY()) {
-//                        weight *= 1.0
-//                                - (footprint.getMaxY() - bbox.getMaxY()) / footprint.getHeight();
-//                    }
-//                    ret.put(cell.getGridCoordinates(), weight);
-//                }
-//            }
         });
 
+        /*
+         * Add to the cache
+         */
+        maskCache.put(new Element(key, ret));
         return ret;
+    }
+
+    /*
+     * Cache definition for masked cells. This is not likely to be very large,
+     * since in practice we only have one horizontal grid defined, and a maximum
+     * of just over 50 countries.
+     */
+    private static CacheManager cacheManager;
+    private static Cache maskCache = null;
+    private static final long CACHE_SIZE = 256;
+    static {
+        /*
+         * Configure cache
+         */
+        CacheConfiguration cacheConfig = new CacheConfiguration("tamsat.mask.cache", 0)
+                .eternal(true).maxBytesLocalHeap(CACHE_SIZE, MemoryUnit.MEGABYTES)
+                .memoryStoreEvictionPolicy(MemoryStoreEvictionPolicy.LFU)
+                .persistence(new PersistenceConfiguration().strategy(Strategy.NONE))
+                .transactionalMode(TransactionalMode.OFF);
+
+        maskCache = new Cache(cacheConfig);
+
+        cacheManager = CacheManager.create(new Configuration().name("EDAL-CacheManager")
+                .sizeOfPolicy(new SizeOfPolicyConfiguration().maxDepth(1_000)));
+        cacheManager.addCache(maskCache);
+    }
+
+    private static class MaskCacheKey {
+        HorizontalGrid grid;
+        CountryDefinition countryDef;
+
+        public MaskCacheKey(HorizontalGrid grid, CountryDefinition countryDef) {
+            super();
+            this.grid = grid;
+            this.countryDef = countryDef;
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + ((countryDef == null) ? 0 : countryDef.hashCode());
+            result = prime * result + ((grid == null) ? 0 : grid.hashCode());
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            MaskCacheKey other = (MaskCacheKey) obj;
+            if (countryDef == null) {
+                if (other.countryDef != null)
+                    return false;
+            } else if (!countryDef.equals(other.countryDef))
+                return false;
+            if (grid == null) {
+                if (other.grid != null)
+                    return false;
+            } else if (!grid.equals(other.grid))
+                return false;
+            return true;
+        }
     }
 }

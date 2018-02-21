@@ -18,5 +18,5 @@
     <h1>Subset job submitted</h1>
     Your job has been successfully submitted to the queue.  When completed, it will be available from <a href="?email=$email&ref=$ref">here</a>.<br />
     Note that your job will be available for download for 7 days after completion, or 24 hours after it has been downloaded for the first time.<br \>
-    <a href="">Click here to submit another job</a>
+    <a href="javascript:history.back()">Click here to submit another job</a>
  </body>

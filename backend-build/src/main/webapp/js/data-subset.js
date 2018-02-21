@@ -155,12 +155,13 @@ function populateCountries() {
     xhr.onload = function(e) {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
-                var countries = JSON.parse(xhr.responseText);
+                var countryLabel2Id = JSON.parse(xhr.responseText);
+                var countries = Object.keys(countryLabel2Id);
                 countries.sort();
                 var countrySel = document.getElementById('regionSelect');
 
                 for(var i = 0; i < countries.length; i++) {
-                    countrySel.appendChild(new Option(countries[i], countries[i]));
+                    countrySel.appendChild(new Option(countries[i], countryLabel2Id[countries[i]]));
                 }
             }
         }

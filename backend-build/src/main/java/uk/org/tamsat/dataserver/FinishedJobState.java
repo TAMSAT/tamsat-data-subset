@@ -84,12 +84,12 @@ public class FinishedJobState implements Serializable {
             sb.append("Timeseries of ");
         }
         if(params.isPoint()) {
-            HorizontalPosition pos = params.getBounds().getBoundingBox().getLowerCorner();
+            HorizontalPosition pos = params.getBoundingBox().getLowerCorner();
             sb.append("(Lat: "+pos.getY()+", Lon: "+pos.getX()+")");
         } else if(params.isCountry()){
             sb.append(params.getCountry());
         } else {
-            sb.append("region:<br />"+params.getBounds());
+            sb.append("region:<br />"+params.getBoundingBox());
         }
         sb.append("<br />Between "+TimeUtils.formatUtcDateOnly(params.getTimeRange().getLow())+" and ");
         sb.append(TimeUtils.formatUtcDateOnly(params.getTimeRange().getHigh()));

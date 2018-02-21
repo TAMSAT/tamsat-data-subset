@@ -28,24 +28,26 @@
 
 package uk.org.tamsat.dataserver;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -57,22 +59,28 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
+import org.geotools.data.DataStore;
+import org.geotools.data.DataStoreFinder;
+import org.geotools.data.FeatureSource;
+import org.geotools.feature.FeatureCollection;
+import org.geotools.feature.FeatureIterator;
 import org.joda.time.DateTime;
-import org.json.JSONArray;
 import org.json.JSONObject;
+import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.vividsolutions.jts.geom.Geometry;
 
 import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
 import uk.ac.rdg.resc.edal.dataset.Dataset;
 import uk.ac.rdg.resc.edal.domain.Extent;
 import uk.ac.rdg.resc.edal.domain.TemporalDomain;
-import uk.ac.rdg.resc.edal.geometry.Polygon;
-import uk.ac.rdg.resc.edal.geometry.SimplePolygon;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.util.GISUtils;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
 import uk.org.tamsat.dataserver.SubsetJob.JobFinished;
+import uk.org.tamsat.dataserver.util.CountryDefinition;
 import uk.org.tamsat.dataserver.util.JobListing;
 
 /**
@@ -90,7 +98,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
     private ExecutorService jobQueue;
     private ScheduledExecutorService cleaner;
 
-    private Map<String, Polygon> countryBounds;
+    private Map<String, CountryDefinition> countryBounds;
     private DataCatalogue tamsatCatalogue;
 
     private File dataDir;
@@ -166,6 +174,12 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             throw new ServletException(
                     "Velocity template engine is badly defined.  This is probably a bug, please report it to the system administrator.");
         }
+        
+        /*
+         * Load definition of countries
+         */
+        URL africaShp = getClass().getResource("/shapefiles/Africa.shp");
+        countryBounds = loadCountriesFromShapefile(africaShp);
 
         /*
          * If list of persisted running jobs exists, load it into memory and set
@@ -273,41 +287,86 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         cleaner.scheduleWithFixedDelay(cleanupJob, 15, 15, TimeUnit.MINUTES);
 
         log.debug("Data subset servlet started");
-
-        /*
-         * TODO implement with shapefiles and move up the init method
-         */
-        countryBounds = new HashMap<>();
+    }
+    
+    static Map<String, CountryDefinition> loadCountriesFromShapefile(URL shapefile) {
+        Map<String, CountryDefinition> ret = new HashMap<>();
         try {
-            InputStream countries = getClass().getResourceAsStream("/africa_countries.dat");
-            BufferedReader r = new BufferedReader(new InputStreamReader(countries));
-            String line;
-            String currentCountry = null;
-            List<HorizontalPosition> vertices = new ArrayList<>();
-            while ((line = r.readLine()) != null) {
-                if (line.startsWith("#")) {
-                    if (vertices.size() > 0) {
-                        /*
-                         * We have just finished parsing the previous country.
-                         * This will be the case for all but the 1st one.
-                         */
-                        countryBounds.put(currentCountry.toUpperCase(),
-                                new SimplePolygon(vertices));
-                        vertices = new ArrayList<>();
-                    }
-
-                    currentCountry = line.substring(1);
-                } else {
-                    String[] posParts = line.split(",");
-                    vertices.add(new HorizontalPosition(Double.parseDouble(posParts[0]),
-                            Double.parseDouble(posParts[1])));
+            Collection<SimpleFeature> features = getFeatures(shapefile);
+            Pattern countryIdPattern = Pattern.compile("([A-Za-z]+)[0-9]*");
+            Map<String, String> id2Label = new HashMap<>();
+            Map<String, List<Geometry>> id2Geometries = new HashMap<>();
+            for (SimpleFeature feature : features) {
+                /*
+                 * ID is 3 letters + number. Same letters
+                 */
+                String id = feature.getAttribute("ID").toString();
+                Matcher m = countryIdPattern.matcher(id);
+                if (!m.matches()) {
+                    log.warn("Unexpected country ID: " + id);
+                    continue;
                 }
+                String countryId = m.group(1);
+                
+                Object caption = feature.getAttribute("CAPTION");
+                if (caption != null && !caption.toString().isEmpty()) {
+                    id2Label.put(countryId, caption.toString());
+                }
+
+                if(!id2Geometries.containsKey(countryId)) {
+                    id2Geometries.put(countryId, new ArrayList<>());
+                }
+                Geometry geometry = (Geometry) feature.getDefaultGeometry();
+                id2Geometries.get(countryId).add(geometry);
+            }
+            for(String countryId : id2Label.keySet()) {
+                ret.put(countryId, new CountryDefinition(id2Label.get(countryId), id2Geometries.get(countryId)));
             }
         } catch (IOException e) {
             log.warn(
                     "Problem reading list of country bounds.  Not all countries will be available to subset");
         }
+        return ret;
+    }
 
+    public static void main(String[] args) throws IOException {
+        URL resource = TamsatDataSubsetServlet.class.getResource("/shapefiles/Africa.shp");
+        Collection<SimpleFeature> features = getFeatures(resource);
+        for (SimpleFeature f : features) {
+            System.out.println(f.getAttribute("CAPTION"));
+        }
+    }
+
+    /**
+     * Reads a set of {@link SimpleFeature}s from a shapefile
+     *
+     * @param shapefilePath
+     *            The location of the .shp file
+     * @return A {@link Collection} of {@link SimpleFeature}s contained within
+     *         the shapefile
+     * @throws IOException
+     *             If there is a problem reading the shapefile
+     * @throws DataStoreException
+     */
+    protected static Collection<SimpleFeature> getFeatures(URL shapefile) throws IOException {
+        Map<String, Object> map = new HashMap<>();
+        map.put("url", shapefile);
+
+        DataStore dataStore = DataStoreFinder.getDataStore(map);
+        String typeName = dataStore.getTypeNames()[0];
+
+        FeatureSource<SimpleFeatureType, SimpleFeature> source = dataStore
+                .getFeatureSource(typeName);
+
+        FeatureCollection<SimpleFeatureType, SimpleFeature> collection = source.getFeatures();
+        Collection<SimpleFeature> features = new ArrayList<>();
+        try (FeatureIterator<SimpleFeature> simpleFeatures = collection.features()) {
+            while (simpleFeatures.hasNext()) {
+                features.add(simpleFeatures.next());
+            }
+        }
+        dataStore.dispose();
+        return features;
     }
 
     @Override
@@ -355,9 +414,9 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
                 throw new ServletException("Problem returning job list", e);
             }
         } else if (method.equalsIgnoreCase("GETCOUNTRIES")) {
-            JSONArray countries = new JSONArray();
-            for (String country : countryBounds.keySet()) {
-                countries.put(country);
+            JSONObject countries = new JSONObject();
+            for (Entry<String, CountryDefinition> country : countryBounds.entrySet()) {
+                countries.put(country.getValue().getLabel(), country.getKey());
             }
             resp.setContentType("application/json");
             try {
@@ -444,7 +503,8 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
              * Parse required parameters. This will throw an exception if they
              * are not present
              */
-            subsetParams = new SubsetRequestParams(req, countryBounds);
+            TamsatRequestParams reqParams = new TamsatRequestParams(req.getParameterMap());
+            subsetParams = new SubsetRequestParams(reqParams, countryBounds);
 
             /*
              * Add the job to the queue

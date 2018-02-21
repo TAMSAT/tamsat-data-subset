@@ -31,32 +31,35 @@ package uk.org.tamsat.dataserver;
 import java.io.Serializable;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.joda.time.DateTime;
 import org.joda.time.chrono.ISOChronology;
 
 import uk.ac.rdg.resc.edal.domain.Extent;
 import uk.ac.rdg.resc.edal.exceptions.IncorrectDomainException;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
 import uk.ac.rdg.resc.edal.geometry.BoundingBoxImpl;
-import uk.ac.rdg.resc.edal.geometry.Polygon;
 import uk.ac.rdg.resc.edal.util.Extents;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
+import uk.org.tamsat.dataserver.util.CountryDefinition;
 
 public class SubsetRequestParams implements Serializable {
     private static final long serialVersionUID = 3L;
     private final String datasetId;
     private final boolean isPoint;
     private boolean isCountry = false;
-    private final Polygon bounds;
+    private final BoundingBox bbox;
+    private CountryDefinition countryDefinition = null;
     private final Extent<DateTime> timeRange;
     private final boolean getNetcdf;
     private final JobReference jobRef;
     private String filename;
     private String countryStr;
 
-    public SubsetRequestParams(HttpServletRequest req, Map<String, Polygon> countryBounds) {
-        TamsatRequestParams params = new TamsatRequestParams(req.getParameterMap());
+    public SubsetRequestParams(TamsatRequestParams params,
+            Map<String, CountryDefinition> countryBounds) {
+        /*
+         * TODO separate out this object and its construction from parameter map
+         */
         datasetId = params.getMandatoryString("DATASET");
         String datatype = params.getMandatoryString("DATATYPE");
         getNetcdf = datatype.equalsIgnoreCase("netcdf");
@@ -64,7 +67,7 @@ public class SubsetRequestParams implements Serializable {
         if (datatype.equalsIgnoreCase("point")) {
             double lon = params.getDouble("LON", 0f);
             double lat = params.getDouble("LAT", 0f);
-            bounds = new BoundingBoxImpl(lon, lat, lon, lat);
+            bbox = new BoundingBoxImpl(lon, lat, lon, lat);
             isPoint = true;
             boundsStr = lat + "_" + lon;
         } else {
@@ -77,16 +80,16 @@ public class SubsetRequestParams implements Serializable {
                 double minLat = params.getDouble("MINLAT", 0f);
                 double maxLon = params.getDouble("MAXLON", 0f);
                 double maxLat = params.getDouble("MAXLAT", 0f);
-                bounds = new BoundingBoxImpl(minLon, minLat, maxLon, maxLat);
+                bbox = new BoundingBoxImpl(minLon, minLat, maxLon, maxLat);
                 boundsStr = minLon + "_" + maxLon + "_" + minLat + "_" + maxLat;
             } else {
-                bounds = countryBounds.get(countryStr);
+                countryDefinition = countryBounds.get(countryStr);
+                if (countryDefinition == null) {
+                    throw new IncorrectDomainException("No definition for country: " + countryStr);
+                }
+                bbox = countryDefinition.getBoundingBox();
                 boundsStr = countryStr.toLowerCase().replaceAll(" ", "_");
                 isCountry = true;
-                if (bounds == null) {
-                    throw new IncorrectDomainException(
-                            "No boundary defined for the country: " + countryStr);
-                }
             }
             isPoint = false;
         }
@@ -132,8 +135,12 @@ public class SubsetRequestParams implements Serializable {
         return countryStr;
     }
 
-    public Polygon getBounds() {
-        return bounds;
+    public BoundingBox getBoundingBox() {
+        return bbox;
+    }
+
+    public CountryDefinition getCountryDefinition() {
+        return countryDefinition;
     }
 
     public Extent<DateTime> getTimeRange() {
@@ -150,7 +157,8 @@ public class SubsetRequestParams implements Serializable {
 
     @Override
     public String toString() {
-        return (getNetcdf ? "NetCDF: " : "CSV: ") + datasetId + ", " + bounds + ", " + timeRange;
+        return (getNetcdf ? "NetCDF: " : "CSV: ") + datasetId + ", "
+                + (countryDefinition != null ? countryDefinition.getLabel() : bbox) + ", "
+                + timeRange;
     }
-
 }
