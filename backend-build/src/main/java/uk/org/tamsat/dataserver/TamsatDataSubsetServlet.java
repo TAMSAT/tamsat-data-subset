@@ -129,6 +129,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         Object config = servletConfig.getServletContext()
                 .getAttribute(TamsatApplicationServlet.CONTEXT_TAMSAT_CATALOGUE);
         if (config instanceof DataCatalogue) {
+            log.debug("Data subset servlet getting data catalogue");
             tamsatCatalogue = (DataCatalogue) config;
         } else {
             String message;
@@ -146,6 +147,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         if (nThreads < 1) {
             nThreads = 1;
         }
+        log.debug("Using "+nThreads+" threads for data subsetting");
         jobQueue = Executors.newFixedThreadPool(nThreads);
 
         Object configDir = servletConfig.getServletContext()
@@ -165,6 +167,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             throw new ServletException(
                     "Config directory is badly defined.  This is probably a bug, please report it to the system administrator.");
         }
+        log.debug("Prepared temporary data directory at "+dataDir.getAbsolutePath());
 
         Object ve = servletConfig.getServletContext()
                 .getAttribute(TamsatApplicationServlet.CONTEXT_VELOCITY_ENGINE);
@@ -174,12 +177,14 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             throw new ServletException(
                     "Velocity template engine is badly defined.  This is probably a bug, please report it to the system administrator.");
         }
-        
+
+        log.debug("Loading country definitions");
         /*
          * Load definition of countries
          */
         URL africaShp = getClass().getResource("/shapefiles/Africa.shp");
         countryBounds = loadCountriesFromShapefile(africaShp);
+        log.debug(countryBounds.size()+" country definitions loaded");
 
         /*
          * If list of persisted running jobs exists, load it into memory and set
@@ -187,6 +192,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
          */
         File persistedRunningJobs = new File(dataDir, SUBMITTED_JOBLIST_FILENAME);
         if (persistedRunningJobs.exists()) {
+            log.debug("Bringing back uncompleted jobs from previous session");
             try (FileInputStream fis = new FileInputStream(persistedRunningJobs);
                     ObjectInputStream ois = new ObjectInputStream(fis)) {
                 Object obj = ois.readObject();
@@ -204,6 +210,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
                     }
                     saveSubmittedJobList();
                 }
+                log.debug("Previous jobs set running");
             } catch (Throwable e) {
                 log.error(
                         "Problem reading persisted job list.  Jobs running in previous sessions will need to be re-run manually",
@@ -214,6 +221,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         /*
          * If persisted job list exists, load it into memory
          */
+        log.debug("Loading information about previously completed jobs");
         File persistedCompletedJobs = new File(dataDir, COMPLETED_JOBLIST_FILENAME);
         if (persistedCompletedJobs.exists()) {
             try (FileInputStream fis = new FileInputStream(persistedCompletedJobs);
@@ -224,6 +232,9 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
                     /*
                      * Now build the Maps of IDs 2 jobs and email 2 job lists
                      * for easier retrieval
+                     */
+                    /*
+                     * TODO Increase available time, since server was down 
                      */
                     for (FinishedJobState job : finishedJobs) {
                         ids2Jobs.put(job.getId(), job);
@@ -288,7 +299,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
 
         log.debug("Data subset servlet started");
     }
-    
+
     static Map<String, CountryDefinition> loadCountriesFromShapefile(URL shapefile) {
         Map<String, CountryDefinition> ret = new HashMap<>();
         try {
@@ -307,20 +318,21 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
                     continue;
                 }
                 String countryId = m.group(1);
-                
+
                 Object caption = feature.getAttribute("CAPTION");
                 if (caption != null && !caption.toString().isEmpty()) {
                     id2Label.put(countryId, caption.toString());
                 }
 
-                if(!id2Geometries.containsKey(countryId)) {
+                if (!id2Geometries.containsKey(countryId)) {
                     id2Geometries.put(countryId, new ArrayList<>());
                 }
                 Geometry geometry = (Geometry) feature.getDefaultGeometry();
                 id2Geometries.get(countryId).add(geometry);
             }
-            for(String countryId : id2Label.keySet()) {
-                ret.put(countryId, new CountryDefinition(id2Label.get(countryId), id2Geometries.get(countryId)));
+            for (String countryId : id2Label.keySet()) {
+                ret.put(countryId, new CountryDefinition(id2Label.get(countryId),
+                        id2Geometries.get(countryId)));
             }
         } catch (IOException e) {
             log.warn(

@@ -223,11 +223,14 @@ public class TamsatApplicationServlet extends HttpServlet {
             log.error("Problem writing new config file", e);
             throw new ServletException("Cannot create a new config file", e);
         }
+        log.debug("Creating data catalogue");
         try {
             catalogue = new DataCatalogue(config, new SimpleLayerNameMapper());
         } catch (IOException e) {
             log.error("Problem loading datasets", e);
+            throw new ServletException("Cannot create data catalogue.", e);
         }
+        log.debug("Created data catalogue.");
 
         /*
          * Store the config in the ServletContext, so that the other servlets
@@ -250,47 +253,4 @@ public class TamsatApplicationServlet extends HttpServlet {
         velocityEngine.init(props);
         context.setAttribute(CONTEXT_VELOCITY_ENGINE, velocityEngine);
     }
-
-//    @Override
-//    protected void doGet(HttpServletRequest req, HttpServletResponse response)
-//            throws ServletException, IOException {
-//        /* HTTP 1.1 */
-//        response.setHeader("Cache-Control", "no-cache");
-//        /* HTTP 1.0 */
-//        response.setHeader("Pragma", "no-cache");
-//        /* Prevents caching at the proxy server */
-//        response.setDateHeader("Expires", 0);
-//        /*
-//         * Just return the front page. If we want some more (dynamic) web pages
-//         * available here, we need to do some extra handling of what the URL
-//         * actually says
-//         */
-//        Template template = velocityEngine.getTemplate("templates/index.vm");
-//        VelocityContext context = new VelocityContext();
-//        EventCartridge ec = new EventCartridge();
-//        ec.addEventHandler(new EscapeHtmlReference());
-//        ec.attachToContext(context);
-//
-//        context.put("version", getVersion());
-//        context.put("catalogue", catalogue);
-//        context.put("config", catalogue.getConfig());
-//        context.put("GISUtils", GISUtils.class);
-//        context.put("supportedImageFormats", ImageFormat.getSupportedMimeTypes());
-//        template.merge(context, response.getWriter());
-//    }
-//
-//    static String getVersion() {
-//        String path = "/version.properties";
-//        InputStream stream = TamsatApplicationServlet.class.getResourceAsStream(path);
-//        if (stream == null)
-//            return "UNKNOWN";
-//        Properties props = new Properties();
-//        try {
-//            props.load(stream);
-//            stream.close();
-//            return (String) props.get("ncwms-version");
-//        } catch (IOException e) {
-//            return "UNKNOWN";
-//        }
-//    }
 }
