@@ -28,6 +28,7 @@
 
 package uk.org.tamsat.dataserver.util;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -44,10 +45,8 @@ import uk.ac.rdg.resc.edal.geometry.BoundingBoxImpl;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.util.GISUtils;
 
-public class CountryDefinition {
-    /*
-     * TODO make private and use getters
-     */
+public class CountryDefinition implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String label;
     private final List<Geometry> regions;
 

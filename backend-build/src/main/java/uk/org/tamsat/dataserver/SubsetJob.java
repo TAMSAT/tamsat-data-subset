@@ -79,20 +79,15 @@ public class SubsetJob implements Callable<Integer> {
 
     private static final Logger log = LoggerFactory.getLogger(SubsetJob.class);
 
-    private SubsetRequestParams params;
-    private GriddedDataset dataset;
-    private File dataDir;
-
-    private JobFinished callback;
+    private final SubsetRequestParams params;
+    private final DataCatalogue tamsatCatalogue;
+    private final File dataDir;
+    private final JobFinished callback;
 
     public SubsetJob(SubsetRequestParams params, DataCatalogue tamsatCatalogue, File dataDir,
             JobFinished callback) {
         this.params = params;
-        Dataset ds = tamsatCatalogue.getDatasetFromId(params.getDatasetId());
-        if (!(ds instanceof GriddedDataset)) {
-            throw new EdalException("Only gridded datasets may be subset");
-        }
-        this.dataset = (GriddedDataset) ds;
+        this.tamsatCatalogue = tamsatCatalogue;
         this.dataDir = dataDir;
         this.callback = callback;
     }
@@ -100,6 +95,25 @@ public class SubsetJob implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
+            /*
+             * This job could be submitted before the dataset has been loaded
+             * (usually on a reboot)
+             * 
+             * Wait until it is loaded before running.
+             * 
+             * TODO test this.
+             */
+            Dataset ds = tamsatCatalogue.getDatasetFromId(params.getDatasetId());
+            while (ds == null) {
+                log.debug("Dataset "+params.getDatasetId()+" not available yet");
+                Thread.sleep(1000L);
+                ds = tamsatCatalogue.getDatasetFromId(params.getDatasetId());
+            }
+            if (!(ds instanceof GriddedDataset)) {
+                throw new EdalException("Only gridded datasets may be subset");
+            }
+            GriddedDataset dataset = (GriddedDataset) ds;
+
             log.debug("Running job " + params.hashCode());
             /*
              * Do the subsetting and save the file
