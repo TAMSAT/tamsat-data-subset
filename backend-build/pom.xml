@@ -86,11 +86,17 @@
         </dependency>
     </dependencies>
     <repositories>
-        <!-- <repository> -->
-        <!-- <id>geotk</id> -->
-        <!-- <name>GeoTK</name> -->
-        <!-- <url>http://maven.geotoolkit.org/</url> -->
-        <!-- </repository> -->
+        <repository>
+            <id>maven-snapshots</id>
+            <url>http://oss.sonatype.org/content/repositories/snapshots</url>
+            <layout>default</layout>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
         <repository>
             <id>osgeo</id>
             <name>Open Source Geospatial Foundation Repository</name>
