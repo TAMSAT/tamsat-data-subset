@@ -43,17 +43,6 @@ import org.opengis.geometry.Geometry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.sf.ehcache.Cache;
-import net.sf.ehcache.CacheManager;
-import net.sf.ehcache.Element;
-import net.sf.ehcache.config.CacheConfiguration;
-import net.sf.ehcache.config.CacheConfiguration.TransactionalMode;
-import net.sf.ehcache.config.Configuration;
-import net.sf.ehcache.config.MemoryUnit;
-import net.sf.ehcache.config.PersistenceConfiguration;
-import net.sf.ehcache.config.PersistenceConfiguration.Strategy;
-import net.sf.ehcache.config.SizeOfPolicyConfiguration;
-import net.sf.ehcache.store.MemoryStoreEvictionPolicy;
 import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
 import uk.ac.rdg.resc.edal.dataset.Dataset;
 import uk.ac.rdg.resc.edal.dataset.GriddedDataset;
@@ -82,7 +71,7 @@ public class SubsetJob implements Callable<Integer> {
     private final DataCatalogue tamsatCatalogue;
     private final File dataDir;
     private final JobFinished callback;
-
+    
     public SubsetJob(SubsetRequestParams params, DataCatalogue tamsatCatalogue, File dataDir,
             JobFinished callback) {
         this.params = params;
@@ -99,8 +88,6 @@ public class SubsetJob implements Callable<Integer> {
              * (usually on a reboot)
              * 
              * Wait until it is loaded before running.
-             * 
-             * TODO test this.
              */
             Dataset ds = tamsatCatalogue.getDatasetFromId(params.getDatasetId());
             while (ds == null) {
@@ -300,18 +287,8 @@ public class SubsetJob implements Callable<Integer> {
      * @return A {@link Set} of the {@link GridCoordinates2D} which are included
      *         in the given bounds
      */
-    @SuppressWarnings("unchecked")
     private static Set<GridCoordinates2D> getCellsToMask(HorizontalGrid grid,
             CountryDefinition countryDefinition) {
-        /*
-         * Get masked cells from cache if they are available. For large
-         * countries (e.g. DRC) this process can take quite a long time (say 10
-         * minutes).
-         */
-        MaskCacheKey key = new MaskCacheKey(grid, countryDefinition);
-        if (maskCache.isElementInMemory(key)) {
-            return (Set<GridCoordinates2D>) maskCache.get(key);
-        }
         Set<GridCoordinates2D> ret = new HashSet<>();
 
         grid.getDomainObjects().forEach(new Consumer<GridCell2D>() {
@@ -323,78 +300,6 @@ public class SubsetJob implements Callable<Integer> {
             }
         });
 
-        /*
-         * Add to the cache
-         */
-        maskCache.put(new Element(key, ret));
         return ret;
     }
-
-    /*
-     * Cache definition for masked cells. This is not likely to be very large,
-     * since in practice we only have one horizontal grid defined, and a maximum
-     * of just over 50 countries.
-     */
-    private static CacheManager cacheManager;
-    private static Cache maskCache = null;
-    private static final long CACHE_SIZE = 256;
-    static {
-        /*
-         * Configure cache
-         */
-        CacheConfiguration cacheConfig = new CacheConfiguration("tamsat.mask.cache", 0)
-                .eternal(true).maxBytesLocalHeap(CACHE_SIZE, MemoryUnit.MEGABYTES)
-                .memoryStoreEvictionPolicy(MemoryStoreEvictionPolicy.LFU)
-                .persistence(new PersistenceConfiguration().strategy(Strategy.NONE))
-                .transactionalMode(TransactionalMode.OFF);
-
-        maskCache = new Cache(cacheConfig);
-
-        cacheManager = CacheManager.create(new Configuration().name("EDAL-CacheManager")
-                .sizeOfPolicy(new SizeOfPolicyConfiguration().maxDepth(1_000)));
-        cacheManager.addCache(maskCache);
-    }
-
-    private static class MaskCacheKey {
-        HorizontalGrid grid;
-        CountryDefinition countryDef;
-
-        public MaskCacheKey(HorizontalGrid grid, CountryDefinition countryDef) {
-            super();
-            this.grid = grid;
-            this.countryDef = countryDef;
-        }
-
-        @Override
-        public int hashCode() {
-            final int prime = 31;
-            int result = 1;
-            result = prime * result + ((countryDef == null) ? 0 : countryDef.hashCode());
-            result = prime * result + ((grid == null) ? 0 : grid.hashCode());
-            return result;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj)
-                return true;
-            if (obj == null)
-                return false;
-            if (getClass() != obj.getClass())
-                return false;
-            MaskCacheKey other = (MaskCacheKey) obj;
-            if (countryDef == null) {
-                if (other.countryDef != null)
-                    return false;
-            } else if (!countryDef.equals(other.countryDef))
-                return false;
-            if (grid == null) {
-                if (other.grid != null)
-                    return false;
-            } else if (!grid.equals(other.grid))
-                return false;
-            return true;
-        }
-    }
-
 }
