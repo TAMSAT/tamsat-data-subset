@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>uk.org.tamsat</groupId>
+    <artifactId>tamsat-process-masks</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <iea.url>http://www.the-iea.org</iea.url>
+        <main.class>uk.org.tamsat.masks.ProcessMasks</main.class>
+    </properties>
+
+    <packaging>jar</packaging>
+    <name>tamsat-process-masks</name>
+    <url>https://github.com/tamsat/tamsat-subset-server</url>
+    <inceptionYear>2018</inceptionYear>
+    <description>This reads a sample TAMSAT grid and a shapefile of Africa, and produces data files which can be read by the data subset server.  This is to avoid unpredictable classpath clashes between the shapefile libraries and the EDAL libraries.</description>
+    <organization>
+        <name>The IEA, University of Reading, UK</name>
+        <url>{iea.url}</url>
+    </organization>
+
+    <licenses>
+        <license>
+            <url></url>
+            <name></name>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <name>Guy Griffiths</name>
+            <organization>The IEA, University of Reading, UK</organization>
+            <organizationUrl>${iea.url}</organizationUrl>
+            <email>guy.griffiths@the-iea.org</email>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-shapefile</artifactId>
+            <version>18.2</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.ucar</groupId>
+            <artifactId>netcdf4</artifactId>
+            <version>5.0.0-alpha3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>1.7.2</version>
+        </dependency>
+    </dependencies>
+    <repositories>
+        <repository>
+            <id>osgeo</id>
+            <name>Open Source Geospatial Foundation Repository</name>
+            <url>http://download.osgeo.org/webdav/geotools/</url>
+        </repository>
+        <repository>
+            <id>unidata-all</id>
+            <url>https://artifacts.unidata.ucar.edu/repository/unidata-all</url>
+        </repository>
+    </repositories>
+
+    <build>
+        <finalName>tamsat-process-masks</finalName>
+        <plugins>
+            <plugin>
+                <!-- Sets the source version to 1.8 -->
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+                <version>2.5.1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-eclipse-plugin</artifactId>
+                <configuration>
+                    <downloadSources>true</downloadSources>
+                    <downloadJavadocs>true</downloadJavadocs>
+                </configuration>
+                <version>2.9</version>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.6.0</version>
+                <configuration>
+                    <mainClass>${main.class}</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.eclipse.m2e</groupId>
+                    <artifactId>lifecycle-mapping</artifactId>
+                    <version>1.0.0</version>
+                    <configuration>
+                        <lifecycleMappingMetadata>
+                            <pluginExecutions>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.apache.maven.plugins</groupId>
+                                        <artifactId>maven-enforcer-plugin</artifactId>
+                                        <versionRange>[1.0.0,)</versionRange>
+                                        <goals>
+                                            <goal>enforce</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore />
+                                    </action>
+                                </pluginExecution>
+                            </pluginExecutions>
+                        </lifecycleMappingMetadata>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+    <profiles>
+        <profile>
+            <id>doclint-java8-disable</id>
+            <activation>
+                <jdk>[1.8,</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <configuration>
+                            <additionalparam>-Xdoclint:none</additionalparam>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+    <scm>
+        <connection>scm:git:ssh://git@github.com/tamsat/tamsat-subset-server.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/tamsat/tamsat-subset-server.git</developerConnection>
+        <url>https://github.com/tamsat/tamsat-subset-server</url>
+    </scm>
+</project>
