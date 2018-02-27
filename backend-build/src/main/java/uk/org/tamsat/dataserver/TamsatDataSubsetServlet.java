@@ -65,15 +65,9 @@ import org.slf4j.LoggerFactory;
 
 import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
 import uk.ac.rdg.resc.edal.dataset.Dataset;
-import uk.ac.rdg.resc.edal.dataset.GriddedDataset;
-import uk.ac.rdg.resc.edal.dataset.cdm.CdmGridDatasetFactory;
 import uk.ac.rdg.resc.edal.domain.Extent;
 import uk.ac.rdg.resc.edal.domain.TemporalDomain;
-import uk.ac.rdg.resc.edal.exceptions.EdalException;
 import uk.ac.rdg.resc.edal.geometry.BoundingBox;
-import uk.ac.rdg.resc.edal.grid.RegularAxis;
-import uk.ac.rdg.resc.edal.grid.RegularGrid;
-import uk.ac.rdg.resc.edal.metadata.GridVariableMetadata;
 import uk.ac.rdg.resc.edal.util.GISUtils;
 import uk.ac.rdg.resc.edal.util.GridCoordinates2D;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
@@ -82,7 +76,7 @@ import uk.org.tamsat.dataserver.util.CountryDefinition;
 import uk.org.tamsat.dataserver.util.JobListing;
 
 /**
- * A servlet which handles the queueing of
+ * A servlet which handles the queueing of data subsetting/averaging jobs
  *
  * @author Guy Griffiths
  */
@@ -107,19 +101,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
 
     private VelocityEngine velocityEngine;
 
-    private static final Logger log = LoggerFactory.getLogger(TamsatDataSubsetServlet.class);
-
-    public static void main(String[] args) throws EdalException, IOException {
-        CdmGridDatasetFactory f = new CdmGridDatasetFactory();
-        GriddedDataset dataset = (GriddedDataset) f.createDataset("tamsat",
-                "/home/guy/Data/tamsat/**/**/*.nc");
-        GridVariableMetadata metadata = dataset.getVariableMetadata("rfe");
-        RegularGrid hGrid = (RegularGrid) metadata.getHorizontalDomain();
-        RegularAxis xAxis = hGrid.getXAxis();
-        for (Double x : xAxis.getCoordinateValues()) {
-            System.out.println(x);
-        }
-    }
+    private static final Logger log = LoggerFactory.getLogger(DataSubsetTest.class);
 
     @Override
     @SuppressWarnings("unchecked")
@@ -315,7 +297,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         log.debug("Data subset servlet started");
     }
 
-    private Map<String, CountryDefinition> loadCountryMasks(URL africaMasks) throws IOException {
+    static Map<String, CountryDefinition> loadCountryMasks(URL africaMasks) throws IOException {
         BufferedReader r = new BufferedReader(new InputStreamReader(africaMasks.openStream()));
         String line;
         Map<String, CountryDefinition> ret = new HashMap<>();
@@ -330,12 +312,16 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             BoundingBox bbox = GISUtils.parseBbox(countryParts[2], true, "CRS:84");
 
             line = r.readLine();
+            if (line == null || line.isEmpty()) {
+                continue;
+            }
             String[] gridCoordsStrs = line.split(",");
             List<GridCoordinates2D> cells = new ArrayList<>();
             for (String gridCoordStr : gridCoordsStrs) {
                 String[] xy = gridCoordStr.split(" ");
-                if(xy.length == 2) {
-                    cells.add(new GridCoordinates2D(Integer.parseInt(xy[0]), Integer.parseInt(xy[1])));
+                if (xy.length == 2) {
+                    cells.add(new GridCoordinates2D(Integer.parseInt(xy[0]),
+                            Integer.parseInt(xy[1])));
                 }
             }
             ret.put(id, new CountryDefinition(label, cells, bbox));
