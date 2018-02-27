@@ -28,15 +28,16 @@
 
 package uk.org.tamsat.dataserver;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +47,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -59,25 +58,24 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
-import org.geotools.data.DataStore;
-import org.geotools.data.DataStoreFinder;
-import org.geotools.data.FeatureSource;
-import org.geotools.feature.FeatureCollection;
-import org.geotools.feature.FeatureIterator;
 import org.joda.time.DateTime;
 import org.json.JSONObject;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.vividsolutions.jts.geom.Geometry;
-
 import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
 import uk.ac.rdg.resc.edal.dataset.Dataset;
+import uk.ac.rdg.resc.edal.dataset.GriddedDataset;
+import uk.ac.rdg.resc.edal.dataset.cdm.CdmGridDatasetFactory;
 import uk.ac.rdg.resc.edal.domain.Extent;
 import uk.ac.rdg.resc.edal.domain.TemporalDomain;
+import uk.ac.rdg.resc.edal.exceptions.EdalException;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
+import uk.ac.rdg.resc.edal.grid.RegularAxis;
+import uk.ac.rdg.resc.edal.grid.RegularGrid;
+import uk.ac.rdg.resc.edal.metadata.GridVariableMetadata;
 import uk.ac.rdg.resc.edal.util.GISUtils;
+import uk.ac.rdg.resc.edal.util.GridCoordinates2D;
 import uk.ac.rdg.resc.edal.util.TimeUtils;
 import uk.org.tamsat.dataserver.SubsetJob.JobFinished;
 import uk.org.tamsat.dataserver.util.CountryDefinition;
@@ -110,6 +108,18 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
     private VelocityEngine velocityEngine;
 
     private static final Logger log = LoggerFactory.getLogger(TamsatDataSubsetServlet.class);
+
+    public static void main(String[] args) throws EdalException, IOException {
+        CdmGridDatasetFactory f = new CdmGridDatasetFactory();
+        GriddedDataset dataset = (GriddedDataset) f.createDataset("tamsat",
+                "/home/guy/Data/tamsat/**/**/*.nc");
+        GridVariableMetadata metadata = dataset.getVariableMetadata("rfe");
+        RegularGrid hGrid = (RegularGrid) metadata.getHorizontalDomain();
+        RegularAxis xAxis = hGrid.getXAxis();
+        for (Double x : xAxis.getCoordinateValues()) {
+            System.out.println(x);
+        }
+    }
 
     @Override
     @SuppressWarnings("unchecked")
@@ -147,7 +157,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         if (nThreads < 1) {
             nThreads = 1;
         }
-        log.debug("Using "+nThreads+" threads for data subsetting");
+        log.debug("Using " + nThreads + " threads for data subsetting");
         jobQueue = Executors.newFixedThreadPool(nThreads);
 
         Object configDir = servletConfig.getServletContext()
@@ -167,7 +177,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             throw new ServletException(
                     "Config directory is badly defined.  This is probably a bug, please report it to the system administrator.");
         }
-        log.debug("Prepared temporary data directory at "+dataDir.getAbsolutePath());
+        log.debug("Prepared temporary data directory at " + dataDir.getAbsolutePath());
 
         Object ve = servletConfig.getServletContext()
                 .getAttribute(TamsatApplicationServlet.CONTEXT_VELOCITY_ENGINE);
@@ -182,9 +192,14 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         /*
          * Load definition of countries
          */
-        URL africaShp = getClass().getResource("/shapefiles/Africa.shp");
-        countryBounds = loadCountriesFromShapefile(africaShp);
-        log.debug(countryBounds.size()+" country definitions loaded");
+        URL africaMasks = getClass().getResource("/africa_masks.dat");
+        try {
+            countryBounds = loadCountryMasks(africaMasks);
+            log.debug(countryBounds.size() + " country definitions loaded");
+        } catch (IOException e) {
+            log.error("Problem loading country masks.  Subsetting by country will not be available",
+                    e);
+        }
 
         /*
          * If list of persisted running jobs exists, load it into memory and set
@@ -234,7 +249,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
                      * for easier retrieval
                      */
                     /*
-                     * TODO Increase available time, since server was down 
+                     * TODO Increase available time, since server was down
                      */
                     for (FinishedJobState job : finishedJobs) {
                         ids2Jobs.put(job.getId(), job);
@@ -300,85 +315,32 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         log.debug("Data subset servlet started");
     }
 
-    static Map<String, CountryDefinition> loadCountriesFromShapefile(URL shapefile) {
+    private Map<String, CountryDefinition> loadCountryMasks(URL africaMasks) throws IOException {
+        BufferedReader r = new BufferedReader(new InputStreamReader(africaMasks.openStream()));
+        String line;
         Map<String, CountryDefinition> ret = new HashMap<>();
-        try {
-            Collection<SimpleFeature> features = getFeatures(shapefile);
-            Pattern countryIdPattern = Pattern.compile("([A-Za-z]+)[0-9]*");
-            Map<String, String> id2Label = new HashMap<>();
-            Map<String, List<Geometry>> id2Geometries = new HashMap<>();
-            for (SimpleFeature feature : features) {
-                /*
-                 * ID is 3 letters + number. Same letters
-                 */
-                String id = feature.getAttribute("ID").toString();
-                Matcher m = countryIdPattern.matcher(id);
-                if (!m.matches()) {
-                    log.warn("Unexpected country ID: " + id);
-                    continue;
-                }
-                String countryId = m.group(1);
-
-                Object caption = feature.getAttribute("CAPTION");
-                if (caption != null && !caption.toString().isEmpty()) {
-                    id2Label.put(countryId, caption.toString());
-                }
-
-                if (!id2Geometries.containsKey(countryId)) {
-                    id2Geometries.put(countryId, new ArrayList<>());
-                }
-                Geometry geometry = (Geometry) feature.getDefaultGeometry();
-                id2Geometries.get(countryId).add(geometry);
+        while ((line = r.readLine()) != null) {
+            String[] countryParts = line.split(":");
+            if (countryParts.length != 3) {
+                throw new IllegalArgumentException(
+                        "Invalid format - odd lines must contain \"ID:Label:BBOX\"");
             }
-            for (String countryId : id2Label.keySet()) {
-                ret.put(countryId, new CountryDefinition(id2Label.get(countryId),
-                        id2Geometries.get(countryId)));
+            String id = countryParts[0];
+            String label = countryParts[1];
+            BoundingBox bbox = GISUtils.parseBbox(countryParts[2], true, "CRS:84");
+
+            line = r.readLine();
+            String[] gridCoordsStrs = line.split(",");
+            List<GridCoordinates2D> cells = new ArrayList<>();
+            for (String gridCoordStr : gridCoordsStrs) {
+                String[] xy = gridCoordStr.split(" ");
+                if(xy.length == 2) {
+                    cells.add(new GridCoordinates2D(Integer.parseInt(xy[0]), Integer.parseInt(xy[1])));
+                }
             }
-        } catch (IOException e) {
-            log.warn(
-                    "Problem reading list of country bounds.  Not all countries will be available to subset");
+            ret.put(id, new CountryDefinition(label, cells, bbox));
         }
         return ret;
-    }
-
-    public static void main(String[] args) throws IOException {
-        URL resource = TamsatDataSubsetServlet.class.getResource("/shapefiles/Africa.shp");
-        Collection<SimpleFeature> features = getFeatures(resource);
-        for (SimpleFeature f : features) {
-            System.out.println(f.getAttribute("CAPTION"));
-        }
-    }
-
-    /**
-     * Reads a set of {@link SimpleFeature}s from a shapefile
-     *
-     * @param shapefilePath
-     *            The location of the .shp file
-     * @return A {@link Collection} of {@link SimpleFeature}s contained within
-     *         the shapefile
-     * @throws IOException
-     *             If there is a problem reading the shapefile
-     * @throws DataStoreException
-     */
-    protected static Collection<SimpleFeature> getFeatures(URL shapefile) throws IOException {
-        Map<String, Object> map = new HashMap<>();
-        map.put("url", shapefile);
-
-        DataStore dataStore = DataStoreFinder.getDataStore(map);
-        String typeName = dataStore.getTypeNames()[0];
-
-        FeatureSource<SimpleFeatureType, SimpleFeature> source = dataStore
-                .getFeatureSource(typeName);
-
-        FeatureCollection<SimpleFeatureType, SimpleFeature> collection = source.getFeatures();
-        Collection<SimpleFeature> features = new ArrayList<>();
-        try (FeatureIterator<SimpleFeature> simpleFeatures = collection.features()) {
-            while (simpleFeatures.hasNext()) {
-                features.add(simpleFeatures.next());
-            }
-        }
-        dataStore.dispose();
-        return features;
     }
 
     @Override

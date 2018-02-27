@@ -39,10 +39,9 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
+import org.opengis.geometry.Geometry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.vividsolutions.jts.geom.Geometry;
 
 import net.sf.ehcache.Cache;
 import net.sf.ehcache.CacheManager;
@@ -318,7 +317,7 @@ public class SubsetJob implements Callable<Integer> {
         grid.getDomainObjects().forEach(new Consumer<GridCell2D>() {
             @Override
             public void accept(GridCell2D cell) {
-                if (!countryDefinition.contains(cell.getCentre())) {
+                if (!countryDefinition.contains(cell.getGridCoordinates())) {
                     ret.add(cell.getGridCoordinates());
                 }
             }
@@ -397,4 +396,5 @@ public class SubsetJob implements Callable<Integer> {
             return true;
         }
     }
+
 }
