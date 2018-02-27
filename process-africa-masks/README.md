@@ -24,8 +24,8 @@ Output Format
 The output format is an ASCII text file containing pairs of lines of the form:
 
 ```
-COUNTRY_ID:Country Label
+COUNTRY_ID:Country Label:minX,minY,maxX,maxY:xGridOffset,yGridOffset
 x1 y1,x2 y2,x3 y3,x4 y4,
 ```
 
-where `x1 y1` etc. are the coordinate _indices_ within the NetCDF data file which are within each country.
+where `x1 y1` etc. are the coordinate _indices_ within the country bounding box in the NetCDF data file, which are within each country.  In other words, if a region matching the bounding box is extracted, the given indices _within the extracted region_ will be within the desired country.

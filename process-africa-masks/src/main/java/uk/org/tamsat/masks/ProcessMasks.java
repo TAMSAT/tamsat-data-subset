@@ -53,12 +53,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.Point;
 
 import ucar.ma2.Array;
+import ucar.nc2.Variable;
 import ucar.nc2.constants.AxisType;
 import ucar.nc2.dataset.CoordinateAxis;
 import ucar.nc2.dataset.NetcdfDataset;
@@ -80,12 +80,21 @@ public class ProcessMasks {
 
         Array latVals = latAxis.read();
         Array lonVals = lonAxis.read();
+        Variable rfe = netcdfDataset.findVariable("rfe");
+        Number fillVal = rfe.findAttribute("_FillValue").getNumericValue();
+        Array rfeVals = rfe.read();
 
         GeometryFactory gf = new GeometryFactory();
 
         Map<String, String> id2Label = new HashMap<>();
         Map<String, Set<int[]>> id2Coords = new HashMap<>();
-        Map<String, Envelope> id2Envelope = new HashMap<>();
+        Map<String, Integer> id2MinXIndex = new HashMap<>();
+        Map<String, Integer> id2MinYIndex = new HashMap<>();
+        Map<String, Double> id2MinX = new HashMap<>();
+        Map<String, Double> id2MinY = new HashMap<>();
+        Map<String, Double> id2MaxX = new HashMap<>();
+        Map<String, Double> id2MaxY = new HashMap<>();
+
         for (SimpleFeature f : features) {
             String countryId = getCountryId(f);
             Object caption = f.getAttribute("CAPTION");
@@ -94,30 +103,69 @@ public class ProcessMasks {
                 id2Label.put(countryId, caption.toString());
                 log.debug("Got ID: " + countryId + ", for country: " + caption);
             }
-            Envelope e1 = ((Geometry) f.getDefaultGeometry()).getEnvelopeInternal();
-            if (!id2Envelope.containsKey(countryId)) {
-                id2Envelope.put(countryId, e1);
-            } else {
-                Envelope e2 = id2Envelope.get(countryId);
-                Envelope newEnv = new Envelope(Math.min(e1.getMinX(), e2.getMinX()),
-                        Math.max(e1.getMaxX(), e2.getMaxX()), Math.min(e1.getMinY(), e2.getMinY()),
-                        Math.max(e1.getMaxY(), e2.getMaxY()));
-                id2Envelope.put(countryId, newEnv);
+            if (!id2MinXIndex.containsKey(countryId)) {
+                id2MinXIndex.put(countryId, Integer.MAX_VALUE);
+            }
+            if (!id2MinYIndex.containsKey(countryId)) {
+                id2MinYIndex.put(countryId, Integer.MAX_VALUE);
+            }
+            if (!id2MinX.containsKey(countryId)) {
+                id2MinX.put(countryId, Double.MAX_VALUE);
+            }
+            if (!id2MinY.containsKey(countryId)) {
+                id2MinY.put(countryId, Double.MAX_VALUE);
+            }
+            if (!id2MaxX.containsKey(countryId)) {
+                id2MaxX.put(countryId, -Double.MAX_VALUE);
+            }
+            if (!id2MaxY.containsKey(countryId)) {
+                id2MaxY.put(countryId, -Double.MAX_VALUE);
             }
         }
 
         log.debug(
                 "Testing all points in TAMSAT grid to see which country (if any) they fall within.  This process will take a long time (2-3 hours as a rough estimate).");
+
         for (int x = 0; x < lonVals.getSize(); x++) {
             log.debug("Processing column " + x + " of " + lonVals.getSize());
             for (int y = 0; y < latVals.getSize(); y++) {
-                Point point = gf
-                        .createPoint(new Coordinate(lonVals.getDouble(x), latVals.getDouble(y)));
-                for (SimpleFeature f : features) {
-                    if (((Geometry) f.getDefaultGeometry()).contains(point)) {
-                        String countryId = getCountryId(f);
-                        id2Coords.get(countryId).add(new int[] { x, y });
-                        break;
+                byte rfeVal = rfeVals.getByte((int) (x + y * lonVals.getSize()));
+                /*
+                 * We don't want to count places where there is no data
+                 */
+                if (rfeVal != fillVal.byteValue()) {
+                    Point point = gf.createPoint(
+                            new Coordinate(lonVals.getDouble(x), latVals.getDouble(y)));
+                    for (SimpleFeature f : features) {
+                        if (((Geometry) f.getDefaultGeometry()).contains(point)) {
+                            String countryId = getCountryId(f);
+                            id2Coords.get(countryId).add(new int[] { x, y });
+                            if (x < id2MinXIndex.get(countryId)) {
+                                id2MinXIndex.put(countryId, x);
+                            }
+                            if (y < id2MinYIndex.get(countryId)) {
+                                id2MinYIndex.put(countryId, y);
+                            }
+                            double xVal = lonVals.getDouble(x);
+                            if (xVal < id2MinX.get(countryId)) {
+                                id2MinX.put(countryId, xVal);
+                            }
+                            if (xVal > id2MaxX.get(countryId)) {
+                                id2MaxX.put(countryId, xVal);
+                            }
+                            double yVal = latVals.getDouble(y);
+                            if (yVal < id2MinY.get(countryId)) {
+                                id2MinY.put(countryId, yVal);
+                            }
+                            if (yVal > id2MaxY.get(countryId)) {
+                                id2MaxY.put(countryId, yVal);
+                            }
+                            /*
+                             * If a point falls into one country, it does not
+                             * fall into any others.
+                             */
+                            break;
+                        }
                     }
                 }
             }
@@ -131,14 +179,22 @@ public class ProcessMasks {
         log.debug("Writing data to file: " + outFile.getAbsolutePath());
         try (BufferedWriter w = new BufferedWriter(new FileWriter(outFile))) {
             for (String country : id2Label.keySet()) {
-                Envelope env = id2Envelope.get(country);
-                w.write(country + ":" + id2Label.get(country) + ":" + env.getMinX() + ","
-                        + env.getMinY() + "," + env.getMaxX() + "," + env.getMaxY() + "\n");
                 Set<int[]> coords = id2Coords.get(country);
-                for (int[] coord : coords) {
-                    w.write(coord[0] + " " + coord[1] + ",");
+
+                if (coords.size() > 0) {
+                    w.write(country + ":" + id2Label.get(country) + ":" + id2MinX.get(country) + ","
+                            + id2MinY.get(country) + "," + id2MaxX.get(country) + ","
+                            + id2MaxY.get(country) + "\n");
+                    /*
+                     * These are the grid point offsets - i.e.
+                     */
+                    int xOffset = id2MinXIndex.get(country);
+                    int yOffset = id2MinYIndex.get(country);
+                    for (int[] coord : coords) {
+                        w.write((coord[0] - xOffset) + " " + (coord[1] - yOffset) + ",");
+                    }
+                    w.write("\n");
                 }
-                w.write("\n");
             }
         } catch (Exception e) {
             log.error("Problem writing data to file", e);
