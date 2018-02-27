@@ -101,7 +101,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
 
     private VelocityEngine velocityEngine;
 
-    private static final Logger log = LoggerFactory.getLogger(DataSubsetTest.class);
+    private static final Logger log = LoggerFactory.getLogger(TamsatDataSubsetServlet.class);
 
     @Override
     @SuppressWarnings("unchecked")
