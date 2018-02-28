@@ -42,7 +42,7 @@ public class FinishedJobState implements Serializable {
     private long downloadedTime;
     private long completedTime;
     private boolean downloaded = false;
-    private Exception exception = null;
+    private Throwable error = null;
 
     public FinishedJobState(SubsetRequestParams params, File fileLocation) {
         this.params = params;
@@ -53,9 +53,9 @@ public class FinishedJobState implements Serializable {
         completedTime = System.currentTimeMillis();
     }
     
-    public FinishedJobState(SubsetRequestParams params, Exception exception) {
+    public FinishedJobState(SubsetRequestParams params, Throwable error) {
         this.params = params;
-        this.exception = exception;
+        this.error = error;
         fileLocation = null;
         outputFilename = null;
     }
@@ -114,10 +114,10 @@ public class FinishedJobState implements Serializable {
     }
     
     public boolean success() {
-        return exception == null;
+        return error == null;
     }
     
-    public Exception getException() {
-        return exception;
+    public Throwable getError() {
+        return error;
     }
 }

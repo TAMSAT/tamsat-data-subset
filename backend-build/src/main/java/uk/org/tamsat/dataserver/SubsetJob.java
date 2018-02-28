@@ -265,7 +265,7 @@ public class SubsetJob implements Callable<Integer> {
             callback.jobFinished(finishedJobState);
 
             return params.hashCode();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("Problem running job", e);
 
             FinishedJobState failedJobState = new FinishedJobState(params, e);

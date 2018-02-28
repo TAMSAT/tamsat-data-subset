@@ -502,7 +502,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
 
             addFinishedJob(state);
         } else {
-            log.error("Problem completing job " + state.getId(), state.getException());
+            log.error("Problem completing job " + state.getId(), state.getError());
         }
 
         saveCompletedJobList();
