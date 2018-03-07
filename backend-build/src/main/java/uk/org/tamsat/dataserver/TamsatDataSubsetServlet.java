@@ -136,8 +136,8 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         }
 
         int nThreads = Runtime.getRuntime().availableProcessors() - 1;
-        if (nThreads < 1) {
-            nThreads = 1;
+        if (nThreads < 2) {
+            nThreads = 2;
         }
         log.debug("Using " + nThreads + " threads for data subsetting");
         jobQueue = Executors.newFixedThreadPool(nThreads);
@@ -383,6 +383,18 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
                 resp.getWriter().write(countries.toString());
             } catch (IOException e) {
                 log.error("Problem writing country list to output stream", e);
+                throw new ServletException("Problem writing JSON to output stream", e);
+            }
+        } else if (method.equalsIgnoreCase("GETDATASETS")) {
+            JSONObject datasets = new JSONObject();
+            for (Dataset ds : tamsatCatalogue.getAllDatasets()) {
+                datasets.put(ds.getId(), tamsatCatalogue.getDatabaseInfo(ds.getId()).getTitle());
+            }
+            resp.setContentType("application/json");
+            try {
+                resp.getWriter().write(datasets.toString());
+            } catch (IOException e) {
+                log.error("Problem writing dataset list to output stream", e);
                 throw new ServletException("Problem writing JSON to output stream", e);
             }
         } else if (method.equalsIgnoreCase("GETTIMES")) {
