@@ -38,6 +38,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -387,9 +388,19 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             }
         } else if (method.equalsIgnoreCase("GETDATASETS")) {
             JSONObject datasets = new JSONObject();
+            /*
+             * Sort the datasets by ID. This allows the order to be configured
+             * by simply giving the IDs a numerical prefix.
+             */
+            List<String> datasetIds = new ArrayList<>();
             for (Dataset ds : tamsatCatalogue.getAllDatasets()) {
-                datasets.put(ds.getId(), tamsatCatalogue.getDatabaseInfo(ds.getId()).getTitle());
+                datasetIds.add(ds.getId());
             }
+            Collections.sort(datasetIds);
+            for (String dsId : datasetIds) {
+                datasets.put(dsId, tamsatCatalogue.getDatasetInfo(dsId).getTitle());
+            }
+
             resp.setContentType("application/json");
             try {
                 resp.getWriter().write(datasets.toString());
@@ -465,7 +476,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             saveCompletedJobList();
         }
     }
-
+    
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
