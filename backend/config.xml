@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <config>
     <datasets>
-        <dataset id="tamsat" title="TAMSAT v3" location="/usr/local/tamsat-data/**/**/*.nc" queryable="true" downloadable="false" dataReaderClass="" copyrightStatement="" moreInfo="" disabled="false" updateInterval="-1">
-        </dataset>
+        <dataset id="01-tamsatDaily.v3" title="TAMSAT v3 Daily" location="/usr/local/tamsat-data/daily/**/**/*.nc"/>
+        <dataset id="02-tamsatPentadal.v3" title="TAMSAT v3 Pentadal" location="/usr/local/tamsat-data/pentadal/**/**/*.nc"/>
+        <dataset id="02a-tamsatPentadalAnomalies.v3" title="TAMSAT v3 Pentadal Anomalies" location="/usr/local/tamsat-data/pentadal-anomalies/**/**/*.nc"/>
+        <dataset id="03-tamsatDekadal.v3" title="TAMSAT v3 Dekadal" location="/usr/local/tamsat-data/dekadal/**/**/*.nc"/>
+        <dataset id="03a-tamsatDekadalAnomalies.v3" title="TAMSAT v3 Dekadal Anomalies" location="/usr/local/tamsat-data/dekadal-anomalies/**/**/*.nc"/>
+        <dataset id="04-tamsatMonthly.v3" title="TAMSAT v3 Monthly" location="/usr/local/tamsat-data/monthly/**/**/*.nc"/>
+        <dataset id="04a-tamsatMonthlyAnomalies.v3" title="TAMSAT v3 Monthly Anomalies" location="/usr/local/tamsat-data/monthly-anomalies/**/**/*.nc"/>
+        <dataset id="05-tamsatSeasonal.v3" title="TAMSAT v3 Seasonal" location="/usr/local/tamsat-data/seasonal/**/*.nc"/>
+        <dataset id="05a-tamsatSeasonalAnomalies.v3" title="TAMSAT v3 Seasonal Anomalies" location="/usr/local/tamsat-data/seasonal-anomalies/**/*.nc"/>
     </datasets>
-    <cache enabled="false">
-        <inMemorySizeMB>512</inMemorySizeMB>
-        <elementLifetimeMinutes>0.0</elementLifetimeMinutes>
-    </cache>
 </config>
