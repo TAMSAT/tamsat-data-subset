@@ -106,11 +106,14 @@ function populateDatasets() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 var datasets = JSON.parse(xhr.responseText);
-                if(Object.keys(datasets).length > 0) {
+                if(datasets.length > 0) {
                     document.getElementById('notLoadedLabel').style.display = 'none';
                     document.getElementById('subsetSelection').style.display = 'block';
-	                for (var id in datasets) {
-	                    datasetSel.appendChild(new Option(datasets[id], id));
+                    for (var i=0; i<datasets.length; i++) {
+                        // There should only be one per array element (we are using arrays to preserve order)
+	                    for (var id in datasets[i]) {
+	                       datasetSel.appendChild(new Option(datasets[i][id], id));
+	                    }
 	                }
 	                populateTimes(datasetSel[datasetSel.selectedIndex].value);
                 }

@@ -60,6 +60,7 @@ import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.joda.time.DateTime;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -387,7 +388,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
                 throw new ServletException("Problem writing JSON to output stream", e);
             }
         } else if (method.equalsIgnoreCase("GETDATASETS")) {
-            JSONObject datasets = new JSONObject();
+            JSONArray datasets = new JSONArray();
             /*
              * Sort the datasets by ID. This allows the order to be configured
              * by simply giving the IDs a numerical prefix.
@@ -398,7 +399,9 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             }
             Collections.sort(datasetIds);
             for (String dsId : datasetIds) {
-                datasets.put(dsId, tamsatCatalogue.getDatasetInfo(dsId).getTitle());
+                JSONObject dsObj = new JSONObject();
+                dsObj.put(dsId, tamsatCatalogue.getDatasetInfo(dsId).getTitle());
+                datasets.put(dsObj);
             }
 
             resp.setContentType("application/json");
