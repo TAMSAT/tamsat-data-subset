@@ -91,6 +91,7 @@ public class FinishedJobState implements Serializable {
         } else {
             sb.append("region:<br />"+params.getBoundingBox());
         }
+        sb.append("<br />From dataset: "+params.getDatasetId());
         sb.append("<br />Between "+TimeUtils.formatUtcDateOnly(params.getTimeRange().getLow())+" and ");
         sb.append(TimeUtils.formatUtcDateOnly(params.getTimeRange().getHigh()));
         return sb.toString();
