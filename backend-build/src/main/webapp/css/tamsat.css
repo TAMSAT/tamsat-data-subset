@@ -104,8 +104,13 @@ table td {
     padding: 2px;
 }
 
+#datasetSelect {
+	width: 100%;
+	margin: 0;
+}
+
 @media only screen and (max-width: 500px) {
-    img {
+    .headerImage {
         width: 100%;
         margin-left: auto;
         margin-right: auto;

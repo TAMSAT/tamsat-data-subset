@@ -15,60 +15,60 @@
 </head>
 
 <body>
-    <img src="img/header.png" />
+    <img src="img/header.png" class="headerImage" />
     <h1>Data Subset Service</h1>
 
     <div id="form" class="tamsat-form">
+        <div id="notLoadedLabel">Loading list of datasets on server.  Please wait for a minute and refresh your browser.</div>
         <form method="post" action="data" onsubmit="return validateForm()">
-            <input type="hidden" name="dataset" value="tamsat" />
-            <div class="tamsat-form-section">
-                <label for="pointChoice">Timeseries at a point (CSV)</label>
-                <input type="radio" name="datatype" id="pointChoice" value="point" onchange="datatypeSelected(value)" checked/>
-                <br />
-                <label for="regionChoice">Timeseries over a region (CSV)</label>
-                <input type="radio" name="datatype" id="regionChoice" value="region" onchange="datatypeSelected(value)" />
-                <br />
-                <label for="netcdfChoice">Regional data (NetCDF)</label>
-                <input type="radio" name="datatype" id="netcdfChoice" value="netcdf" onchange="datatypeSelected(value)" />
-                <div id="pointSelection">
-                    <label for="lat">Latitude</label>
-                    <input id="lat" type="number" name="lat" min=-35 max=39 value=0 step="any" />
-                    <br />
-                    <label for="lon">Longitude</label>
-                    <input id="lon" type="number" name="lon" min=-20 max=52 value=0 step="any" />
+            <div id="subsetSelection" hidden>
+                <div id="datasetSelection">
+                    <select name="dataset" id="datasetSelect">
+                </select><br />
                 </div>
-                <div id="regionSelection" hidden>
-                    <!-- Could add dropdown of countries here, with Bounding Box being the first option... -->
-                    <label>Region:</label>
-                    <select name="country" id="regionSelect" onchange="regionSelected(value)">
+                <!-- <input type="hidden" name="dataset" value="tamsat" /> -->
+                <div class="tamsat-form-section">
+                    <label for="pointChoice">Timeseries at a point (CSV)</label>
+                    <input type="radio" name="datatype" id="pointChoice" value="point" onchange="datatypeSelected(value)" checked/>
+                    <br />
+                    <label for="regionChoice">Timeseries over a region (CSV)</label>
+                    <input type="radio" name="datatype" id="regionChoice" value="region" onchange="datatypeSelected(value)" />
+                    <br />
+                    <label for="netcdfChoice">Regional data (NetCDF)</label>
+                    <input type="radio" name="datatype" id="netcdfChoice" value="netcdf" onchange="datatypeSelected(value)" />
+                    <div id="pointSelection">
+                        <label for="lat">Latitude</label>
+                        <input id="lat" type="number" name="lat" min=-35 max=39 value=0 step="any" />
+                        <br />
+                        <label for="lon">Longitude</label>
+                        <input id="lon" type="number" name="lon" min=-20 max=52 value=0 step="any" />
+                    </div>
+                    <div id="regionSelection" hidden>
+                        <!-- data-subset.js adds countries here once they are loaded on the server, with Bounding Box being the first option... -->
+                        <label>Region:</label>
+                        <select name="country" id="regionSelect" onchange="regionSelected(value)">
                         <option value="BOUNDS">Bounding Box</option>
                         <option disabled>--------------</option>
                     </select><br />
-                    <div id="bounds">
-                        <input id="maxLat" type="number" name="maxLat" min=-35 max=39 value=10 step="any" /><br />
-                        <input id="minLon" type="number" name="minLon" min=-20 max=52 value=-10 step="any" />
-                        <input id="maxLon" type="number" name="maxLon" min=-20 max=52 value=10 step="any" /><br />
-                        <input id="minLat" type="number" name="minLat" min=-35 max=39 value=-10 step="any" />
+                        <div id="bounds">
+                            <input id="maxLat" type="number" name="maxLat" min=-35 max=39 value=10 step="any" /><br />
+                            <input id="minLon" type="number" name="minLon" min=-20 max=52 value=-10 step="any" />
+                            <input id="maxLon" type="number" name="maxLon" min=-20 max=52 value=10 step="any" /><br />
+                            <input id="minLat" type="number" name="minLat" min=-35 max=39 value=-10 step="any" />
+                        </div>
                     </div>
                 </div>
+                <div class="tamsat-form-section" id="timesDiv">
+                    Loading available times...
+                </div>
+                <div class="tamsat-form-section">
+                    <label for="email">Email address</label>
+                    <input id="email" type="text" name="email" />
+                    <label for="ref">Job/Group Reference&nbsp;<img src="img/info.png" title="This is an extra reference for the subset job, or a group of subset jobs.  You will need to provide this and your email address when you want to download the data.  You can use the same reference for different jobs.  It is there to prevent other people from downloading your data just by knowing your email address, but is not as secure as a password."/></label>
+                    <input id="ref" type="text" name="ref" />
+                </div>
+                <input type="submit" value="Submit Job">
             </div>
-            <div class="tamsat-form-section">
-                <!-- These get populated on load, by a call to the server -->
-                <label for="starttime">Start date</label>
-                <select name="starttime" id="startSelect">
-                </select>
-                <br />
-                <label for="endtime">End date</label>
-                <select name="endtime" id="endSelect">
-                </select>
-            </div>
-            <div class="tamsat-form-section">
-                <label for="email">Email address</label>
-                <input id="email" type="text" name="email" />
-                <label for="ref">Job/Group Reference&nbsp;<img src="img/info.png" title="This is an extra reference for the subset job, or a group of subset jobs.  You will need to provide this and your email address when you want to download the data.  You can use the same reference for different jobs.  It is there to prevent other people from downloading your data just by knowing your email address, but is not as secure as a password."/></label>
-                <input id="ref" type="text" name="ref" />
-            </div>
-            <input type="submit" value="Submit Job">
         </form>
     </div>
     <div id="not_loaded" style="display:none;">

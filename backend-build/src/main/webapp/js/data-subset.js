@@ -9,9 +9,9 @@ window.onload = function() {
     // Basic sanity check for min/max limits
     // WHY DON'T BROWSERS DO THIS?
     var checkLimits = function(s) {
-        if(parseFloat(s.value) > s.max) {
+        if (parseFloat(s.value) > s.max) {
             s.value = s.max;
-        } else  if(parseFloat(s.value) < s.min) {
+        } else if (parseFloat(s.value) < s.min) {
             s.value = s.min;
         }
     }
@@ -51,7 +51,7 @@ window.onload = function() {
         checkLimits(lon);
     })
 
-    populateTimes();
+    populateDatasets();
     populateCountries();
 
     // This is normally handled by the fact that datatypeSelected is bound to the
@@ -60,7 +60,7 @@ window.onload = function() {
     // chosen a region option, submitted, and used browser history to go back.
     // Without this, in that situation, a region is picked on the radio button,
     // but lat/lon boxes for a point are displayed.
-    if(document.getElementById('pointChoice').checked) {
+    if (document.getElementById('pointChoice').checked) {
         datatypeSelected('point');
     } else {
         datatypeSelected('region');
@@ -80,7 +80,7 @@ function datatypeSelected(value) {
 }
 
 function regionSelected(value) {
-    if(value == 'BOUNDS') {
+    if (value == 'BOUNDS') {
         document.getElementById('bounds').style.display = 'block';
     } else {
         document.getElementById('bounds').style.display = 'none';
@@ -95,9 +95,42 @@ function validateForm() {
     }
 }
 
-function populateTimes() {
+function populateDatasets() {
+    var datasetSel = document.getElementById('datasetSelect');
+    datasetSel.addEventListener('change', function(e) {
+        populateTimes(e.target.value);
+    });
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "data?REQUEST=GETTIMES&DATASET=tamsat", true);
+    xhr.open("GET", "data?REQUEST=GETDATASETS", true);
+    xhr.onload = function(e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                var datasets = JSON.parse(xhr.responseText);
+                if(Object.keys(datasets).length > 0) {
+                    document.getElementById('notLoadedLabel').style.display = 'none';
+                    document.getElementById('subsetSelection').style.display = 'block';
+	                for (var id in datasets) {
+	                    datasetSel.appendChild(new Option(datasets[id], id));
+	                }
+	                populateTimes(datasetSel[datasetSel.selectedIndex].value);
+                }
+            } else {
+                // Something has gone wrong here...
+                console.log("Problem getting list of available datasets.  The server may be down");
+            }
+        }
+    };
+    xhr.onerror = function(e) {
+        console.error(xhr.statusText);
+    };
+    xhr.send(null);
+}
+
+function populateTimes(datasetId) {
+    var timesDiv = document.getElementById('timesDiv');
+    timesDiv.innerHTML = 'Loading available times...';
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "data?REQUEST=GETTIMES&DATASET=" + datasetId, true);
     xhr.onload = function(e) {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
@@ -105,8 +138,29 @@ function populateTimes() {
                 var current = new Date(Date.parse(startEndTimes.starttime));
                 var end = new Date(Date.parse(startEndTimes.endtime));
 
-                var startSel = document.getElementById('startSelect');
-                var endSel = document.getElementById('endSelect');
+                // Remove the "Loading times..." label
+                timesDiv.innerHTML = '';
+
+                var startLabel = document.createElement('label')
+                startLabel.for = 'starttime';
+                startLabel.innerHTML = 'Start Date:';
+                var startSel = document.createElement('select');
+                startSel.name = 'starttime';
+                startSel.id = 'starttime';
+                var br = document.createElement('br');
+                var endLabel = document.createElement('label')
+                endLabel.for = 'endtime';
+                endLabel.innerHTML = 'End Date:';
+                var endSel = document.createElement('select');
+                endSel.name = 'endtime';
+                endSel.id = 'endtime';
+
+                timesDiv.appendChild(startLabel);
+                timesDiv.appendChild(startSel);
+                timesDiv.appendChild(br);
+                timesDiv.appendChild(endLabel);
+                timesDiv.appendChild(endSel);
+
                 // Populate the drop-down lists with all available dates
                 while (current <= end) {
                     startSel.appendChild(new Option(current.getDate() + '/' + (current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
@@ -160,7 +214,7 @@ function populateCountries() {
                 countries.sort();
                 var countrySel = document.getElementById('regionSelect');
 
-                for(var i = 0; i < countries.length; i++) {
+                for (var i = 0; i < countries.length; i++) {
                     countrySel.appendChild(new Option(countries[i], countryLabel2Id[countries[i]]));
                 }
             }
