@@ -26,8 +26,13 @@
         </tr>        
  #foreach($job in $jobs)
         <tr>
+  #if($job.success())
             <td>$job.jobDescription</td>
             <td><a href="?REQUEST=GETDATA&ID=$job.id">Download</a></td>
+  #else
+            <td class="error">Job Failed:<br />$job.jobDescription</td>
+            <td></td>
+  #end
         </tr>
  #end
     </table>

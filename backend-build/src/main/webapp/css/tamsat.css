@@ -12,6 +12,10 @@ h1 {
     font-size: 20pt;
 }
 
+.error {
+	color: red;
+}
+
 .tamsat-form-section {
     padding: 8px;
     margin-top: 4px;

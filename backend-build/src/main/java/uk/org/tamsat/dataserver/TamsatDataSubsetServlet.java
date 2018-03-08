@@ -479,7 +479,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             saveCompletedJobList();
         }
     }
-    
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -523,13 +523,11 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
          */
         submittedJobs.remove(state.getId());
 
-        if (state.success()) {
-            log.debug("Saving completed job " + state.getId());
-
-            addFinishedJob(state);
-        } else {
+        if (!state.success()) {
             log.error("Problem completing job " + state.getId(), state.getError());
         }
+        log.debug("Saving completed job " + state.getId());
+        addFinishedJob(state);
 
         saveCompletedJobList();
         saveSubmittedJobList();
