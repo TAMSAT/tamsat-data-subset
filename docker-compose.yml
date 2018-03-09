@@ -18,30 +18,15 @@ services:
       - war-output:/usr/local/tomcat/webapps
       - tomcat-config-volume:/usr/local/tomcat/conf
       - tamsat-config-volume:/usr/local/tamsat-subset
-      - data:/usr/local/tamsat-data
-
+      - /mnt/honeycomb/Data/tamsat/:/usr/local/tamsat-data
 
 volumes:
   war-output:
     driver: local
   tomcat-config-volume:
     driver: local
-    driver_opts:
-        device: /home/guy/.tamsat-docker/tomcat/
-        type: none
-        o: bind
   tamsat-config-volume:
     driver: local
-    driver_opts:
-        device: /home/guy/.tamsat-docker/
-        type: none
-        o: bind
-  data:
-    driver: local
-    driver_opts:
-        device: /mnt/honeycomb/Data/tamsat/
-        type: none
-        o: bind
 
 networks:
   default:
