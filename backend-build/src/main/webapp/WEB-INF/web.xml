@@ -80,4 +80,10 @@
         <!-- This performs the tasks we need doing - namely shutting down the EHCache and the EPSG database -->
         <listener-class>uk.ac.rdg.resc.edal.wms.WmsContextListener</listener-class>
     </listener>
+
+    <error-page>
+        <exception-type>java.lang.Throwable</exception-type>
+        <location>/error.jsp</location>
+    </error-page>
+
 </web-app>
