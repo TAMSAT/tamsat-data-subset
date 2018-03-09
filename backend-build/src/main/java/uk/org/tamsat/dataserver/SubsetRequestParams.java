@@ -71,7 +71,7 @@ public class SubsetRequestParams implements Serializable {
             isPoint = true;
             boundsStr = lat + "_" + lon;
         } else {
-            countryStr = params.getString("COUNTRY", "BOUNDS").toUpperCase();
+            countryStr = params.getString("ZONE", "BOUNDS").toUpperCase();
             if ("BOUNDS".equals(countryStr)) {
                 /*
                  * TODO Better interface than this?
