@@ -17,7 +17,7 @@
     <img src="img/header.png" />
     <h1>Job list</h1>
 #if($email && $ref)
-    Completed job list for $email with reference $ref:
+    List of completed jobs for $email with reference $ref:
     <br />
     <table>
         <tr>
