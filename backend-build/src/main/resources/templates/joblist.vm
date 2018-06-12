@@ -46,7 +46,7 @@
             <label for="email">Email address:</label>
             <input type="text" name="email" /><br />
             <label for="email">Job/Group Reference:</label>
-            <input type="text" name="ref" />
+            <input type="text" name="ref" value="tamsat-subset" />
         </div>
         <input type="submit" value="Submit">
     </form>
