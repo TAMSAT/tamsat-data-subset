@@ -39,6 +39,8 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
 import org.opengis.geometry.Geometry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +59,6 @@ import uk.ac.rdg.resc.edal.grid.TimeAxis;
 import uk.ac.rdg.resc.edal.util.Array1D;
 import uk.ac.rdg.resc.edal.util.Array4D;
 import uk.ac.rdg.resc.edal.util.GridCoordinates2D;
-import uk.ac.rdg.resc.edal.util.TimeUtils;
 import uk.org.tamsat.dataserver.util.CountryDefinition;
 
 public class SubsetJob implements Callable<Integer> {
@@ -66,6 +67,14 @@ public class SubsetJob implements Callable<Integer> {
     }
 
     private static final Logger log = LoggerFactory.getLogger(SubsetJob.class);
+    
+    private static final DateTimeFormatter CSV_DATETIME_FORMATTER = (new DateTimeFormatterBuilder())
+            .appendYear(4, 4).appendLiteral("-")
+            .appendMonthOfYear(2).appendLiteral("-")
+            .appendDayOfMonth(2).appendLiteral(" ")
+            .appendHourOfDay(2).appendLiteral(":")
+            .appendMinuteOfHour(2).appendLiteral(":")
+            .appendSecondOfMinute(2).toFormatter();
 
     private final SubsetRequestParams params;
     private final DataCatalogue tamsatCatalogue;
@@ -181,10 +190,14 @@ public class SubsetJob implements Callable<Integer> {
                         TimeAxis timeAxis = feature.getDomain();
                         for (int i = 0; i < timeAxis.size(); i++) {
                             line = new StringBuilder(
-                                    TimeUtils.dateTimeToISO8601(timeAxis.getCoordinateValue(i))
+                                    CSV_DATETIME_FORMATTER.print(timeAxis.getCoordinateValue(i))
                                             + ",");
                             for (String var : varIds) {
-                                line.append(var2Vals.get(var).get(i) + ",");
+                                Number value = var2Vals.get(var).get(i);
+                                if(value == null || Double.isNaN(value.doubleValue())) {
+                                    value = -999;
+                                }
+                                line.append(value + ",");
                             }
                             w.write(line.substring(0, line.length() - 1) + "\n");
                         }
@@ -219,7 +232,7 @@ public class SubsetJob implements Callable<Integer> {
                         TimeAxis timeAxis = subset.getDomain().getTimeAxis();
                         for (int t = 0; t < timeAxis.size(); t++) {
                             line = new StringBuilder(
-                                    TimeUtils.dateTimeToISO8601(timeAxis.getCoordinateValue(t))
+                                    CSV_DATETIME_FORMATTER.print(timeAxis.getCoordinateValue(t))
                                             + ",");
 
                             /*
@@ -251,7 +264,16 @@ public class SubsetJob implements Callable<Integer> {
                                         }
                                     }
                                 }
-                                line.append(totalVal / totalWeight + ",");
+                                if(!Double.isNaN(totalVal)) {
+                                    line.append(totalVal / totalWeight + ",");
+                                } else {
+                                    /*
+                                     * This shouldn't happen...
+                                     * 
+                                     * If it does, write -999 for missing data
+                                     */
+                                    line.append("-999,");
+                                }
                             }
                             w.write(line.substring(0, line.length() - 1) + "\n");
                         }
