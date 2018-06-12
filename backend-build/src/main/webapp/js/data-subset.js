@@ -139,7 +139,10 @@ function populateTimes(datasetId) {
             if (xhr.status === 200) {
                 var startEndTimes = JSON.parse(xhr.responseText);
                 var current = new Date(Date.parse(startEndTimes.starttime));
+                current.setDate(1)
                 var end = new Date(Date.parse(startEndTimes.endtime));
+                end.setDate(1)
+                end.setMonth(end.getMonth()+1)
 
                 // Remove the "Loading times..." label
                 timesDiv.innerHTML = '';
@@ -165,12 +168,17 @@ function populateTimes(datasetId) {
                 timesDiv.appendChild(endSel);
 
                 // Populate the drop-down lists with all available dates
-                while (current <= end) {
-                    startSel.appendChild(new Option(current.getDate() + '/' + (current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
+                while (current < end) {
+                    startSel.appendChild(new Option(
+                        // current.getDate() + '/'
+                         + (current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
 
-                    endSel.appendChild(new Option(current.getDate() + '/' + (current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
+                    endSel.appendChild(new Option(
+                        // current.getDate() + '/'
+                         + (current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
 
-                    current.setDate(current.getDate() + 1);
+                    // current.setDate(current.getDate() + 1);
+                    current.setMonth(current.getMonth() + 1);
                 }
 
                 // Set the end time to the final available
