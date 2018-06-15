@@ -31,6 +31,7 @@ package uk.org.tamsat.dataserver;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -39,8 +40,6 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
 import org.opengis.geometry.Geometry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +58,7 @@ import uk.ac.rdg.resc.edal.grid.TimeAxis;
 import uk.ac.rdg.resc.edal.util.Array1D;
 import uk.ac.rdg.resc.edal.util.Array4D;
 import uk.ac.rdg.resc.edal.util.GridCoordinates2D;
+import uk.ac.rdg.resc.edal.util.TimeUtils;
 import uk.org.tamsat.dataserver.util.CountryDefinition;
 
 public class SubsetJob implements Callable<Integer> {
@@ -67,15 +67,8 @@ public class SubsetJob implements Callable<Integer> {
     }
 
     private static final Logger log = LoggerFactory.getLogger(SubsetJob.class);
+    private static final DecimalFormat FORMAT_2DP = new DecimalFormat("#.00");
     
-    private static final DateTimeFormatter CSV_DATETIME_FORMATTER = (new DateTimeFormatterBuilder())
-            .appendYear(4, 4).appendLiteral("-")
-            .appendMonthOfYear(2).appendLiteral("-")
-            .appendDayOfMonth(2).appendLiteral(" ")
-            .appendHourOfDay(2).appendLiteral(":")
-            .appendMinuteOfHour(2).appendLiteral(":")
-            .appendSecondOfMinute(2).toFormatter();
-
     private final SubsetRequestParams params;
     private final DataCatalogue tamsatCatalogue;
     private final File dataDir;
@@ -190,14 +183,21 @@ public class SubsetJob implements Callable<Integer> {
                         TimeAxis timeAxis = feature.getDomain();
                         for (int i = 0; i < timeAxis.size(); i++) {
                             line = new StringBuilder(
-                                    CSV_DATETIME_FORMATTER.print(timeAxis.getCoordinateValue(i))
+                                    TimeUtils.formatUtcDateOnly(timeAxis.getCoordinateValue(i))
                                             + ",");
                             for (String var : varIds) {
                                 Number value = var2Vals.get(var).get(i);
                                 if(value == null || Double.isNaN(value.doubleValue())) {
                                     value = -999;
                                 }
-                                line.append(value + ",");
+                                /*
+                                 * We want to format non-integers to 2 d.p.
+                                 */
+                                if(value instanceof Integer) {
+                                    line.append(value + ",");
+                                } else {
+                                    line.append(FORMAT_2DP.format(value));
+                                }
                             }
                             w.write(line.substring(0, line.length() - 1) + "\n");
                         }
@@ -232,7 +232,7 @@ public class SubsetJob implements Callable<Integer> {
                         TimeAxis timeAxis = subset.getDomain().getTimeAxis();
                         for (int t = 0; t < timeAxis.size(); t++) {
                             line = new StringBuilder(
-                                    CSV_DATETIME_FORMATTER.print(timeAxis.getCoordinateValue(t))
+                                    TimeUtils.formatUtcDateOnly(timeAxis.getCoordinateValue(t))
                                             + ",");
 
                             /*
@@ -265,7 +265,7 @@ public class SubsetJob implements Callable<Integer> {
                                     }
                                 }
                                 if(!Double.isNaN(totalVal)) {
-                                    line.append(totalVal / totalWeight + ",");
+                                    line.append(FORMAT_2DP.format(totalVal / totalWeight) + ",");
                                 } else {
                                     /*
                                      * This shouldn't happen...
