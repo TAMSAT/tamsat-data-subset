@@ -106,16 +106,16 @@ function populateDatasets() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 var datasets = JSON.parse(xhr.responseText);
-                if(datasets.length > 0) {
+                if (datasets.length > 0) {
                     document.getElementById('notLoadedLabel').style.display = 'none';
                     document.getElementById('subsetSelection').style.display = 'block';
-                    for (var i=0; i<datasets.length; i++) {
+                    for (var i = 0; i < datasets.length; i++) {
                         // There should only be one per array element (we are using arrays to preserve order)
-	                    for (var id in datasets[i]) {
-	                       datasetSel.appendChild(new Option(datasets[i][id], id));
-	                    }
-	                }
-	                populateTimes(datasetSel[datasetSel.selectedIndex].value);
+                        for (var id in datasets[i]) {
+                            datasetSel.appendChild(new Option(datasets[i][id], id));
+                        }
+                    }
+                    populateTimes(datasetSel[datasetSel.selectedIndex].value);
                 }
             } else {
                 // Something has gone wrong here...
@@ -142,7 +142,7 @@ function populateTimes(datasetId) {
                 current.setDate(1)
                 var end = new Date(Date.parse(startEndTimes.endtime));
                 end.setDate(1)
-                end.setMonth(end.getMonth()+1)
+                end.setMonth(end.getMonth() + 1)
 
                 // Remove the "Loading times..." label
                 timesDiv.innerHTML = '';
@@ -171,11 +171,11 @@ function populateTimes(datasetId) {
                 while (current < end) {
                     startSel.appendChild(new Option(
                         // current.getDate() + '/'
-                         + (current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
+                        +(current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
 
                     endSel.appendChild(new Option(
                         // current.getDate() + '/'
-                         + (current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
+                        +(current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
 
                     // current.setDate(current.getDate() + 1);
                     current.setMonth(current.getMonth() + 1);

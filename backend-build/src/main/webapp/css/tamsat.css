@@ -116,11 +116,6 @@ table td {
     padding: 2px;
 }
 
-#datasetSelect {
-	width: 100%;
-	margin: 0;
-}
-
 @media only screen and (max-width: 500px) {
     .headerImage {
         width: 100%;

@@ -22,9 +22,11 @@
         <div id="notLoadedLabel">Loading list of datasets on server.  Please wait for a minute and refresh your browser.</div>
         <form method="post" action="data" onsubmit="return validateForm()">
             <div id="subsetSelection" hidden>
-                <div id="datasetSelection">
+                <div class="tamsat-form-section">
+                    <label for="datasetSelect">Dataset</label>
                     <select name="dataset" id="datasetSelect">
-                </select><br />
+                    </select>
+                    <br />
                 </div>
                 <!-- <input type="hidden" name="dataset" value="tamsat" /> -->
                 <div class="tamsat-form-section">
