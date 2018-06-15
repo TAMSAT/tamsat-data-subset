@@ -94,7 +94,7 @@ public class SubsetJob implements Callable<Integer> {
             Dataset ds = tamsatCatalogue.getDatasetFromId(params.getDatasetId());
             while (ds == null) {
                 log.debug("Dataset "+params.getDatasetId()+" not available yet");
-                Thread.sleep(1000L);
+                Thread.sleep(10000L);
                 ds = tamsatCatalogue.getDatasetFromId(params.getDatasetId());
             }
             if (!(ds instanceof GriddedDataset)) {

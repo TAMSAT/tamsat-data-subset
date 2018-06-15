@@ -46,12 +46,11 @@ import org.apache.velocity.runtime.RuntimeConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.ac.rdg.resc.edal.catalogue.DataCatalogue;
-import uk.ac.rdg.resc.edal.catalogue.jaxb.CatalogueConfig;
 import uk.ac.rdg.resc.edal.dataset.DatasetFactory;
 import uk.ac.rdg.resc.edal.dataset.cdm.CdmGridDatasetFactory;
-import uk.ac.rdg.resc.edal.graphics.utils.SimpleLayerNameMapper;
 import uk.ac.rdg.resc.edal.util.GISUtils.EpsgDatabasePath;
+import uk.org.tamsat.dataserver.util.TamsatCatalogue;
+import uk.org.tamsat.dataserver.util.TamsatCatalogueConfig;
 
 /**
  * The main entry point of the TAMSAT subsetting server. This deals with loading
@@ -69,20 +68,20 @@ import uk.ac.rdg.resc.edal.util.GISUtils.EpsgDatabasePath;
 public class TamsatApplicationServlet extends HttpServlet {
     public static final String CONTEXT_JOB_LISTING = "JobListing";
     public static final String CONTEXT_CONFIG_DIR = "TamsatConfigDir";
-    public static final String CONTEXT_TAMSAT_CATALOGUE = "TamsatCatalogue";
+    public static final String CONTEXT_TAMSAT_CATALOGUE = "TamsatTamsatCatalogueConfig";
     public static final String CONTEXT_VELOCITY_ENGINE = "VelocityEngine";
 
     private static final long serialVersionUID = 1L;
     private static final Logger log = LoggerFactory.getLogger(TamsatApplicationServlet.class);
 
     private VelocityEngine velocityEngine;
-    private DataCatalogue catalogue;
+    private TamsatCatalogue catalogue;
 
     @Override
     public void init(ServletConfig servletConfig) throws ServletException {
         super.init(servletConfig);
 
-        CatalogueConfig config;
+        TamsatCatalogueConfig config;
         /*
          * Set the default dataset factory - will be used when a dataset factory
          * name is not specified
@@ -190,16 +189,16 @@ public class TamsatApplicationServlet extends HttpServlet {
         try {
             if (configFile.exists()) {
                 log.debug("Reading existing config file");
-                config = CatalogueConfig.readFromFile(configFile);
+                config = TamsatCatalogueConfig.readFromFile(configFile);
             } else {
                 log.debug("No config file - creating new one");
-                config = new CatalogueConfig(configFile);
+                config = new TamsatCatalogueConfig(configFile);
                 config.save();
             }
         } catch (JAXBException e) {
             log.error("Config file is invalid - creating new one", e);
             try {
-                config = new CatalogueConfig(configFile);
+                config = new TamsatCatalogueConfig(configFile);
             } catch (Exception e1) {
                 throw new ServletException("Old config is invalid, and a new one cannot be created",
                         e1);
@@ -214,7 +213,7 @@ public class TamsatApplicationServlet extends HttpServlet {
                     "Cannot find config file - has it been deleted during startup?  Creating new one",
                     e);
             try {
-                config = new CatalogueConfig(configFile);
+                config = new TamsatCatalogueConfig(configFile);
             } catch (Exception e1) {
                 throw new ServletException("Old config is missing, and a new one cannot be created",
                         e1);
@@ -225,7 +224,7 @@ public class TamsatApplicationServlet extends HttpServlet {
         }
         log.debug("Creating data catalogue");
         try {
-            catalogue = new DataCatalogue(config, new SimpleLayerNameMapper());
+            catalogue = new TamsatCatalogue(config);
         } catch (IOException e) {
             log.error("Problem loading datasets", e);
             throw new ServletException("Cannot create data catalogue.", e);

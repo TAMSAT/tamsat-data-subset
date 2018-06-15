@@ -38,18 +38,30 @@ import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.URL;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import javax.mail.Authenticator;
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.PasswordAuthentication;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.ServletOutputStream;
@@ -77,6 +89,8 @@ import uk.ac.rdg.resc.edal.util.TimeUtils;
 import uk.org.tamsat.dataserver.SubsetJob.JobFinished;
 import uk.org.tamsat.dataserver.util.CountryDefinition;
 import uk.org.tamsat.dataserver.util.JobListing;
+import uk.org.tamsat.dataserver.util.TamsatCatalogue;
+import uk.org.tamsat.dataserver.util.TamsatCatalogueConfig.EmailInfo;
 
 /**
  * A servlet which handles the queueing of data subsetting/averaging jobs
@@ -94,7 +108,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
     private ScheduledExecutorService cleaner;
 
     private Map<String, CountryDefinition> countryBounds;
-    private DataCatalogue tamsatCatalogue;
+    private TamsatCatalogue tamsatCatalogue;
 
     private File dataDir;
 
@@ -125,7 +139,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
                 .getAttribute(TamsatApplicationServlet.CONTEXT_TAMSAT_CATALOGUE);
         if (config instanceof DataCatalogue) {
             log.debug("Data subset servlet getting data catalogue");
-            tamsatCatalogue = (DataCatalogue) config;
+            tamsatCatalogue = (TamsatCatalogue) config;
         } else {
             String message;
             if (config == null) {
@@ -549,6 +563,50 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
 
         saveCompletedJobList();
         saveSubmittedJobList();
+
+        try {
+            sendEmail(state.getJobRef());
+        } catch (MessagingException e) {
+            log.error("Problem sending email", e);
+        }
+    }
+    
+    private static final String EMAIL_TITLE = "TAMSAT Data Available";
+    private static final String EMAIL_MESSAGE = "Your TAMSAT data is available to download at:\n";
+
+    @SuppressWarnings("restriction")
+    private void sendEmail(JobReference jobRef) throws AddressException, MessagingException {
+        log.debug("Sending email to "+jobRef.email);
+
+        EmailInfo emailInfo = this.tamsatCatalogue.getEmailInfo();
+        
+        Security.addProvider(new com.sun.net.ssl.internal.ssl.Provider());
+        final String SSL_FACTORY = "javax.net.ssl.SSLSocketFactory";
+
+        Properties props = System.getProperties();
+        props.setProperty("mail.smtp.host", emailInfo.getServer());
+        props.setProperty("mail.smtp.socketFactory.class", SSL_FACTORY);
+        props.setProperty("mail.smtp.port", "465");
+        props.setProperty("mail.smtp.auth", "true");
+        props.setProperty("mail.smtp.starttls.enable", "true");
+
+        Session session = Session.getInstance(props, new Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(emailInfo.getUser(), emailInfo.getPassword());
+            }
+        });
+        
+        final MimeMessage msg = new MimeMessage(session);
+
+        msg.setFrom(new InternetAddress(emailInfo.getReplyTo()));
+        msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(jobRef.email, false));
+
+        msg.setSubject(EMAIL_TITLE);
+        msg.setText(EMAIL_MESSAGE + "http://hostname:port/path/", "utf-8");
+        msg.setSentDate(new Date());
+
+        Transport.send(msg);
     }
 
     public List<FinishedJobState> getFinishedJobs() {
