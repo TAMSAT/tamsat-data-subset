@@ -31,6 +31,7 @@ package uk.org.tamsat.dataserver;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -343,141 +344,158 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        /*
-         * Should check for the ID of the data file to download (i.e. the hash
-         * code of the subset job), and return the data file, if it exists.
-         * 
-         * Once successfully transferred, mark the data file for deletion. Set
-         * up something to delete the actual data files some amount of time
-         * after they have been downloaded (say a day), so that multiple
-         * downloads can be done if required.
-         */
         TamsatRequestParams params = new TamsatRequestParams(req.getParameterMap());
         String method = params.getString("REQUEST", null);
         if (method == null) {
-            /*
-             * No parameters added, just show available subsets
-             */
-            String email = params.getString("EMAIL");
-            String ref = params.getString("REF");
-
-            Template template = velocityEngine.getTemplate("templates/joblist.vm");
-            VelocityContext context = new VelocityContext();
-            context.put("email", email);
-            context.put("ref", ref);
-            if (email != null && ref != null) {
-                List<FinishedJobState> jobs = jobRef2Jobs.get(new JobReference(email, ref));
-                context.put("jobs", jobs);
-            }
-            try {
-                template.merge(context, resp.getWriter());
-            } catch (Exception e) {
-                log.error("Problem returning joblist", e);
-                throw new ServletException("Problem returning job list", e);
-            }
+            showCompleted(params, resp);
         } else if (method.equalsIgnoreCase("GETCOUNTRIES")) {
-            JSONObject countries = new JSONObject();
-            for (Entry<String, CountryDefinition> country : countryBounds.entrySet()) {
-                countries.put(country.getValue().getLabel(), country.getKey());
-            }
-            resp.setContentType("application/json");
-            try {
-                resp.getWriter().write(countries.toString());
-            } catch (IOException e) {
-                log.error("Problem writing country list to output stream", e);
-                throw new ServletException("Problem writing JSON to output stream", e);
-            }
+            getCountries(resp);
         } else if (method.equalsIgnoreCase("GETDATASETS")) {
-            JSONArray datasets = new JSONArray();
-            /*
-             * Sort the datasets by ID. This allows the order to be configured
-             * by simply giving the IDs a numerical prefix.
-             */
-            List<String> datasetIds = new ArrayList<>();
-            for (Dataset ds : tamsatCatalogue.getAllDatasets()) {
-                datasetIds.add(ds.getId());
-            }
-            Collections.sort(datasetIds);
-            for (String dsId : datasetIds) {
-                JSONObject dsObj = new JSONObject();
-                dsObj.put(dsId, tamsatCatalogue.getDatasetInfo(dsId).getTitle());
-                datasets.put(dsObj);
-            }
-
-            resp.setContentType("application/json");
-            try {
-                resp.getWriter().write(datasets.toString());
-            } catch (IOException e) {
-                log.error("Problem writing dataset list to output stream", e);
-                throw new ServletException("Problem writing JSON to output stream", e);
-            }
+            getDatasets(resp);
         } else if (method.equalsIgnoreCase("GETTIMES")) {
-            /*
-             * This returns the available time range for the desired dataset
-             */
-            String datasetId = params.getMandatoryString("DATASET");
-            Dataset dataset = tamsatCatalogue.getDatasetFromId(datasetId);
-            if (dataset == null) {
-                throw new ServletException(
-                        "Data is not yet loaded on the server - please try again in 5 minutes");
-            }
-            Set<String> varIds = dataset.getVariableIds();
-            DateTime startTime = null;
-            DateTime endTime = null;
-            for (String varId : varIds) {
-                TemporalDomain tDomain = dataset.getVariableMetadata(varId).getTemporalDomain();
-                Extent<DateTime> tExtent = tDomain.getExtent();
-                if (startTime == null || tExtent.getLow().isBefore(startTime)) {
-                    startTime = tExtent.getLow();
-                }
-                if (endTime == null || tExtent.getHigh().isAfter(endTime)) {
-                    endTime = tExtent.getHigh();
-                }
-            }
-            JSONObject startEndTimes = new JSONObject();
-            startEndTimes.put("starttime", TimeUtils.dateTimeToISO8601(startTime));
-            startEndTimes.put("endtime", TimeUtils.dateTimeToISO8601(endTime));
-            resp.setContentType("application/json");
-            try {
-                resp.getWriter().write(startEndTimes.toString());
-            } catch (IOException e) {
-                log.error("Problem writing metadata to output stream", e);
-                throw new ServletException("Problem writing JSON to output stream", e);
-            }
+            getTimes(params, resp);
         } else if (method.equalsIgnoreCase("GETDATA")) {
-            /*
-             * Requests a data file from a previously completed job
-             */
-            String id = params.getMandatoryString("ID");
-            FinishedJobState finishedJobState = ids2Jobs.get(id);
-            if (finishedJobState == null) {
-                throw new ServletException("The job ID " + id + " does not exist.");
-            }
-            File fileToServe = finishedJobState.getFileLocation();
-            if (!fileToServe.exists()) {
-                throw new ServletException("The ID " + id
-                        + " does not refer to an existing data file.  Perhaps you have already downloaded this data file?");
-            }
-
-            /*
-             * Now return the data, with appropriate filename and MIME type
-             */
-            resp.setHeader("Content-Disposition",
-                    "inline; filename=" + finishedJobState.getOutputFilename());
-            resp.setContentType(finishedJobState.getOutputFilename().endsWith("csv") ? "text/csv"
-                    : "application/x-netcdf");
-            try (FileInputStream is = new FileInputStream(fileToServe);
-                    ServletOutputStream os = resp.getOutputStream()) {
-                int n;
-                byte[] buffer = new byte[1024];
-                while ((n = is.read(buffer)) > -1) {
-                    os.write(buffer, 0, n); // Don't allow any extra bytes to creep in, final write
-                }
-            }
-            finishedJobState.setDownloaded();
-
-            saveCompletedJobList();
+            getData(params, resp);
         }
+    }
+
+    private void showCompleted(TamsatRequestParams params, HttpServletResponse resp)
+            throws ServletException {
+        /*
+         * No parameters added, just show available subsets
+         */
+        String email = params.getString("EMAIL");
+        String ref = params.getString("REF");
+
+        Template template = velocityEngine.getTemplate("templates/joblist.vm");
+        VelocityContext context = new VelocityContext();
+        context.put("email", email);
+        context.put("ref", ref);
+        if (email != null && ref != null) {
+            List<FinishedJobState> jobs = jobRef2Jobs.get(new JobReference(email, ref));
+            context.put("jobs", jobs);
+        }
+        try {
+            template.merge(context, resp.getWriter());
+        } catch (Exception e) {
+            log.error("Problem returning joblist", e);
+            throw new ServletException("Problem returning job list", e);
+        }
+    }
+
+    private void getCountries(HttpServletResponse resp) throws ServletException {
+        JSONObject countries = new JSONObject();
+        for (Entry<String, CountryDefinition> country : countryBounds.entrySet()) {
+            countries.put(country.getValue().getLabel(), country.getKey());
+        }
+        resp.setContentType("application/json");
+        try {
+            resp.getWriter().write(countries.toString());
+        } catch (IOException e) {
+            log.error("Problem writing country list to output stream", e);
+            throw new ServletException("Problem writing JSON to output stream", e);
+        }
+    }
+
+    private void getDatasets(HttpServletResponse resp) throws ServletException {
+        JSONArray datasets = new JSONArray();
+        /*
+         * Sort the datasets by ID. This allows the order to be configured by
+         * simply giving the IDs a numerical prefix.
+         */
+        List<String> datasetIds = new ArrayList<>();
+        for (Dataset ds : tamsatCatalogue.getAllDatasets()) {
+            datasetIds.add(ds.getId());
+        }
+        Collections.sort(datasetIds);
+        for (String dsId : datasetIds) {
+            JSONObject dsObj = new JSONObject();
+            dsObj.put(dsId, tamsatCatalogue.getDatasetInfo(dsId).getTitle());
+            datasets.put(dsObj);
+        }
+
+        resp.setContentType("application/json");
+        try {
+            resp.getWriter().write(datasets.toString());
+        } catch (IOException e) {
+            log.error("Problem writing dataset list to output stream", e);
+            throw new ServletException("Problem writing JSON to output stream", e);
+        }
+    }
+
+    private void getTimes(TamsatRequestParams params, HttpServletResponse resp)
+            throws ServletException {
+        /*
+         * This returns the available time range for the desired dataset
+         */
+        String datasetId = params.getMandatoryString("DATASET");
+        Dataset dataset = tamsatCatalogue.getDatasetFromId(datasetId);
+        if (dataset == null) {
+            throw new ServletException(
+                    "Data is not yet loaded on the server - please try again in 5 minutes");
+        }
+        Set<String> varIds = dataset.getVariableIds();
+        DateTime startTime = null;
+        DateTime endTime = null;
+        for (String varId : varIds) {
+            TemporalDomain tDomain = dataset.getVariableMetadata(varId).getTemporalDomain();
+            Extent<DateTime> tExtent = tDomain.getExtent();
+            if (startTime == null || tExtent.getLow().isBefore(startTime)) {
+                startTime = tExtent.getLow();
+            }
+            if (endTime == null || tExtent.getHigh().isAfter(endTime)) {
+                endTime = tExtent.getHigh();
+            }
+        }
+        JSONObject startEndTimes = new JSONObject();
+        startEndTimes.put("starttime", TimeUtils.dateTimeToISO8601(startTime));
+        startEndTimes.put("endtime", TimeUtils.dateTimeToISO8601(endTime));
+        resp.setContentType("application/json");
+        try {
+            resp.getWriter().write(startEndTimes.toString());
+        } catch (IOException e) {
+            log.error("Problem writing metadata to output stream", e);
+            throw new ServletException("Problem writing JSON to output stream", e);
+        }
+    }
+
+    private void getData(TamsatRequestParams params, HttpServletResponse resp)
+            throws ServletException, FileNotFoundException, IOException {
+        /*
+         * Requests a data file from a previously completed job
+         */
+        String id = params.getMandatoryString("ID");
+        FinishedJobState finishedJobState = ids2Jobs.get(id);
+        if (finishedJobState == null) {
+            throw new ServletException("The job ID " + id + " does not exist.");
+        }
+        File fileToServe = finishedJobState.getFileLocation();
+        if (!fileToServe.exists()) {
+            throw new ServletException("The ID " + id
+                    + " does not refer to an existing data file.  Perhaps you have already downloaded this data file?");
+        }
+
+        /*
+         * Now return the data, with appropriate filename and MIME type
+         */
+        resp.setHeader("Content-Disposition",
+                "inline; filename=" + finishedJobState.getOutputFilename());
+        resp.setContentType(finishedJobState.getOutputFilename().endsWith("csv") ? "text/csv"
+                : "application/x-netcdf");
+        try (FileInputStream is = new FileInputStream(fileToServe);
+                ServletOutputStream os = resp.getOutputStream()) {
+            int n;
+            byte[] buffer = new byte[1024];
+            while ((n = is.read(buffer)) > -1) {
+                os.write(buffer, 0, n); // Don't allow any extra bytes to creep in, final write
+            }
+        }
+        /*
+         * Set as downloaded - this means the file may be removed sooner
+         */
+        finishedJobState.setDownloaded();
+
+        saveCompletedJobList();
     }
 
     @Override
