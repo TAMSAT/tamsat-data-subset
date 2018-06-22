@@ -569,16 +569,16 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             log.error("Problem sending email", e);
         }
     }
-    
+
     private static final String EMAIL_TITLE = "TAMSAT Data Available";
     private static final String EMAIL_MESSAGE = "Your TAMSAT data is available to download at:\n";
 
     @SuppressWarnings("restriction")
     private void sendEmail(JobReference jobRef) throws AddressException, MessagingException {
-        log.debug("Sending email to "+jobRef.email);
+        log.debug("Sending email to " + jobRef.email);
 
         EmailInfo emailInfo = this.tamsatCatalogue.getEmailInfo();
-        
+
         Security.addProvider(new com.sun.net.ssl.internal.ssl.Provider());
         final String SSL_FACTORY = "javax.net.ssl.SSLSocketFactory";
 
@@ -595,7 +595,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
                 return new PasswordAuthentication(emailInfo.getUser(), emailInfo.getPassword());
             }
         });
-        
+
         final MimeMessage msg = new MimeMessage(session);
 
         msg.setFrom(new InternetAddress(emailInfo.getReplyTo()));

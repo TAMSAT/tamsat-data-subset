@@ -77,8 +77,6 @@ public class TamsatCatalogueConfig extends CatalogueConfig {
             /*
              * If the file doesn't exist, create it with some default values
              */
-            //            log.warn("No config file exists in the given location (" + configFile.getAbsolutePath()
-            //                    + ").  Creating one with defaults");
             config = new TamsatCatalogueConfig();
             config.configFile = configFile;
             config.save();

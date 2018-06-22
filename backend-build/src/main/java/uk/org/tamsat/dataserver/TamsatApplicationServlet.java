@@ -68,7 +68,7 @@ import uk.org.tamsat.dataserver.util.TamsatCatalogueConfig;
 public class TamsatApplicationServlet extends HttpServlet {
     public static final String CONTEXT_JOB_LISTING = "JobListing";
     public static final String CONTEXT_CONFIG_DIR = "TamsatConfigDir";
-    public static final String CONTEXT_TAMSAT_CATALOGUE = "TamsatTamsatCatalogueConfig";
+    public static final String CONTEXT_TAMSAT_CATALOGUE = "TamsatCatalogueConfig";
     public static final String CONTEXT_VELOCITY_ENGINE = "VelocityEngine";
 
     private static final long serialVersionUID = 1L;
@@ -221,6 +221,9 @@ public class TamsatApplicationServlet extends HttpServlet {
         } catch (IOException e) {
             log.error("Problem writing new config file", e);
             throw new ServletException("Cannot create a new config file", e);
+        } catch (Exception e) {
+            log.error("Problem with config file", e);
+            throw new ServletException("Problem with config file", e);
         }
         log.debug("Creating data catalogue");
         try {

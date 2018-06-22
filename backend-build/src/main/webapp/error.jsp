@@ -19,5 +19,5 @@
 	<h1>A Server Error Has Occurred</h1>
 	A problem has occurred when trying to process this request. The message from the server is:
 	<p class="error"><%=exception.getMessage()%></p>
-	<p>Please contact <a href="tamsat@reading.ac.uk">the TAMSAT project</a> if this error continues to occur.</p>
+	<p>Please contact <a href="mailto:tamsat@reading.ac.uk">the TAMSAT project</a> if this error continues to occur.</p>
 </body>
