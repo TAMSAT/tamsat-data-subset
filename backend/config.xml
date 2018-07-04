@@ -8,17 +8,8 @@
         <dataset id="03a-tamsatDekadalAnomalies.v3" title="TAMSAT v3 Dekadal Anomalies" location="/usr/local/tamsat-data/data/v3/dekadal-anomalies/**/**/*.nc" updateInterval="1440"/>
         <dataset id="04-tamsatMonthly.v3" title="TAMSAT v3 Monthly" location="/usr/local/tamsat-data/data/v3/monthly/**/**/*.nc" updateInterval="1440"/>
         <dataset id="04a-tamsatMonthlyAnomalies.v3" title="TAMSAT v3 Monthly Anomalies" location="/usr/local/tamsat-data/data/v3/monthly-anomalies/**/**/*.nc" updateInterval="1440"/>
-        <dataset id="05-tamsatSeasonal.v3" title="TAMSAT v3 Seasonal" location="/usr/local/tamsat-data/data/v3/seasonal/**/*.nc" updateInterval="1440"/>
-        <dataset id="05a-tamsatSeasonalAnomalies.v3" title="TAMSAT v3 Seasonal Anomalies" location="/usr/local/tamsat-data/data/v3/seasonal-anomalies/**/*.nc" updateInterval="1440"/>
-        <dataset id="06-tamsatDaily.v2" title="TAMSAT v2 Daily" location="/usr/local/tamsat-data/data/v2/daily/**/**/*.nc" updateInterval="1440"/>
-        <dataset id="07-tamsatPentadal.v2" title="TAMSAT v2 Pentadal" location="/usr/local/tamsat-data/data/v2/pentadal/**/**/*.nc"  updateInterval="1440"/>
-        <dataset id="07a-tamsatPentadalAnomalies.v2" title="TAMSAT v2 Pentadal Anomalies" location="/usr/local/tamsat-data/data/v2/pentadal-anomalies/**/**/*.nc"  updateInterval="1440"/>
-        <dataset id="08-tamsatDekadal.v2" title="TAMSAT v2 Dekadal" location="/usr/local/tamsat-data/data/v2/dekadal/**/**/*.nc" updateInterval="1440"/>
-        <dataset id="08a-tamsatDekadalAnomalies.v2" title="TAMSAT v2 Dekadal Anomalies" location="/usr/local/tamsat-data/data/v2/dekadal-anomalies/**/**/*.nc" updateInterval="1440"/>
-        <dataset id="09-tamsatMonthly.v2" title="TAMSAT v2 Monthly" location="/usr/local/tamsat-data/data/v2/monthly/**/**/*.nc" updateInterval="1440"/>
-        <dataset id="09a-tamsatMonthlyAnomalies.v2" title="TAMSAT v2 Monthly Anomalies" location="/usr/local/tamsat-data/data/v2/monthly-anomalies/**/**/*.nc" updateInterval="1440"/>
-        <dataset id="10-tamsatSeasonal.v2" title="TAMSAT v2 Seasonal" location="/usr/local/tamsat-data/data/v2/seasonal/**/*.nc" updateInterval="1440"/>
-        <dataset id="10a-tamsatSeasonalAnomalies.v2" title="TAMSAT v2 Seasonal Anomalies" location="/usr/local/tamsat-data/data/v2/seasonal-anomalies/**/*.nc" updateInterval="1440"/>
+        <dataset id="05-tamsatSeasonal.v3" title="TAMSAT v3 Seasonal" location="/usr/local/tamsat-data/data/v3/seasonal/**/**/*.nc" updateInterval="1440"/>
+        <dataset id="05a-tamsatSeasonalAnomalies.v3" title="TAMSAT v3 Seasonal Anomalies" location="/usr/local/tamsat-data/data/v3/seasonal-anomalies/**/**/*.nc" updateInterval="1440"/>
     </datasets>
     <email>
         <smtpHost>smtp.reading.ac.uk</smtpHost>
