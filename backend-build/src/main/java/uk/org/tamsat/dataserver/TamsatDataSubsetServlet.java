@@ -521,7 +521,8 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
              * are not present
              */
             TamsatRequestParams reqParams = new TamsatRequestParams(req.getParameterMap());
-            subsetParams = new SubsetRequestParams(reqParams, countryBounds);
+            subsetParams = new SubsetRequestParams(reqParams, countryBounds,
+                    req.getRequestURL().toString());
 
             /*
              * Add the job to the queue
@@ -564,7 +565,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         saveSubmittedJobList();
 
         try {
-            sendEmail(state.getJobRef());
+            sendEmail(state.getJobRef(), state.getUrl());
         } catch (MessagingException e) {
             log.error("Problem sending email", e);
         }
@@ -572,9 +573,12 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
 
     private static final String EMAIL_TITLE = "TAMSAT Data Available";
     private static final String EMAIL_MESSAGE = "Your TAMSAT data is available to download at:\n";
+    private static final String EMAIL_ERROR_TITLE = "TAMSAT Data Error";
+    private static final String EMAIL_ERROR_MESSAGE = "There was a problem extracting your TAMSAT data.  Please try again.  If this error persists, please contact us by replying to this email.";
 
     @SuppressWarnings("restriction")
-    private void sendEmail(JobReference jobRef) throws AddressException, MessagingException {
+    private void sendEmail(JobReference jobRef, String url)
+            throws AddressException, MessagingException {
         log.debug("Sending email to " + jobRef.email);
 
         EmailInfo emailInfo = this.tamsatCatalogue.getEmailInfo();
@@ -601,8 +605,13 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         msg.setFrom(new InternetAddress(emailInfo.getReplyTo()));
         msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(jobRef.email, false));
 
-        msg.setSubject(EMAIL_TITLE);
-        msg.setText(EMAIL_MESSAGE + "http://hostname:port/path/", "utf-8");
+        if(url != null) {
+            msg.setSubject(EMAIL_TITLE);
+            msg.setText(EMAIL_MESSAGE + url + "?email=" + jobRef.email + "&ref=" + jobRef.ref, "utf-8");
+        } else {
+            msg.setSubject(EMAIL_ERROR_TITLE);
+            msg.setText(EMAIL_ERROR_MESSAGE, "utf-8");
+        }
         msg.setSentDate(new Date());
 
         Transport.send(msg);

@@ -43,10 +43,12 @@ public class FinishedJobState implements Serializable {
     private long completedTime;
     private boolean downloaded = false;
     private Throwable error = null;
+    private String url = null;
 
     public FinishedJobState(SubsetRequestParams params, File fileLocation) {
         this.params = params;
         this.fileLocation = fileLocation;
+        url = params.getUrl();
         /* Job ID is a unique (per unique job) filename */
         outputFilename = params.getFilename();
         downloadedTime = -1L;
@@ -74,6 +76,10 @@ public class FinishedJobState implements Serializable {
 
     public JobReference getJobRef() {
         return params.getJobRef();
+    }
+    
+    public String getUrl() {
+        return url;
     }
     
     public String getJobDescription() {

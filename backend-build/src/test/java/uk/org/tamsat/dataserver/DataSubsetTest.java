@@ -74,7 +74,7 @@ public class DataSubsetTest {
         for (String country : masks.keySet()) {
             paramMap.put("COUNTRY", new String[] { country });
             TamsatRequestParams tamsatParams = new TamsatRequestParams(paramMap);
-            SubsetRequestParams params = new SubsetRequestParams(tamsatParams, masks);
+            SubsetRequestParams params = new SubsetRequestParams(tamsatParams, masks, "");
             SubsetJob subsetJob = new SubsetJob(params, catalogue,
                     new File("/home/guy/temp/subsets"), new JobFinished() {
                         @Override

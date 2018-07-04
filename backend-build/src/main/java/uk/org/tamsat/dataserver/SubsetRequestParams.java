@@ -54,9 +54,10 @@ public class SubsetRequestParams implements Serializable {
     private final JobReference jobRef;
     private String filename;
     private String countryStr;
+    private String url;
 
     public SubsetRequestParams(TamsatRequestParams params,
-            Map<String, CountryDefinition> countryBounds) {
+            Map<String, CountryDefinition> countryBounds, String url) {
         /*
          * TODO separate out this object and its construction from parameter map
          */
@@ -104,6 +105,7 @@ public class SubsetRequestParams implements Serializable {
                 + timeRange.getHigh().getMillis() / 1000L + "_" + boundsStr
                 + (getNetcdf ? ".nc" : ".csv");
         jobRef = new JobReference(email, ref);
+        this.url = url;
     }
 
     /**
@@ -153,6 +155,10 @@ public class SubsetRequestParams implements Serializable {
 
     public JobReference getJobRef() {
         return jobRef;
+    }
+
+    public String getUrl() {
+        return url;
     }
 
     @Override

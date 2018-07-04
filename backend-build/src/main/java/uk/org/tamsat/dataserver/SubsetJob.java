@@ -68,12 +68,12 @@ public class SubsetJob implements Callable<Integer> {
 
     private static final Logger log = LoggerFactory.getLogger(SubsetJob.class);
     private static final DecimalFormat FORMAT_2DP = new DecimalFormat("#.00");
-    
+
     private final SubsetRequestParams params;
     private final DataCatalogue tamsatCatalogue;
     private final File dataDir;
     private final JobFinished callback;
-    
+
     public SubsetJob(SubsetRequestParams params, DataCatalogue tamsatCatalogue, File dataDir,
             JobFinished callback) {
         this.params = params;
@@ -93,7 +93,7 @@ public class SubsetJob implements Callable<Integer> {
              */
             Dataset ds = tamsatCatalogue.getDatasetFromId(params.getDatasetId());
             while (ds == null) {
-                log.debug("Dataset "+params.getDatasetId()+" not available yet");
+                log.debug("Dataset " + params.getDatasetId() + " not available yet");
                 Thread.sleep(10000L);
                 ds = tamsatCatalogue.getDatasetFromId(params.getDatasetId());
             }
@@ -187,13 +187,13 @@ public class SubsetJob implements Callable<Integer> {
                                             + ",");
                             for (String var : varIds) {
                                 Number value = var2Vals.get(var).get(i);
-                                if(value == null || Double.isNaN(value.doubleValue())) {
+                                if (value == null || Double.isNaN(value.doubleValue())) {
                                     value = -999;
                                 }
                                 /*
                                  * We want to format non-integers to 2 d.p.
                                  */
-                                if(value instanceof Integer) {
+                                if (value instanceof Integer) {
                                     line.append(value + ",");
                                 } else {
                                     line.append(FORMAT_2DP.format(value));
@@ -264,7 +264,7 @@ public class SubsetJob implements Callable<Integer> {
                                         }
                                     }
                                 }
-                                if(!Double.isNaN(totalVal)) {
+                                if (!Double.isNaN(totalVal)) {
                                     line.append(FORMAT_2DP.format(totalVal / totalWeight) + ",");
                                 } else {
                                     /*
