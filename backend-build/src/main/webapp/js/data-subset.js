@@ -169,16 +169,12 @@ function populateTimes(datasetId) {
 
                 // Populate the drop-down lists with all available dates
                 while (current < end) {
-                    startSel.appendChild(new Option(
-                        // current.getDate() + '/'
-                        +(current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
+                	var dateStr = +(current.getMonth() + 1) + '/' + current.getFullYear();
+                    startSel.appendChild(new Option(dateStr, current.toISOString()));
 
-                    endSel.appendChild(new Option(
-                        // current.getDate() + '/'
-                        +(current.getMonth() + 1) + '/' + current.getFullYear(), current.toISOString()));
-
-                    // current.setDate(current.getDate() + 1);
                     current.setMonth(current.getMonth() + 1);
+                                                            
+                    endSel.appendChild(new Option(dateStr, current.toISOString()));
                 }
 
                 // Set the end time to the final available
