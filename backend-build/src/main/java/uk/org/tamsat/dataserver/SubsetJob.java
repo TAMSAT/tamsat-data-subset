@@ -258,7 +258,7 @@ public class SubsetJob implements Callable<Integer> {
                                          * has a value
                                          */
                                         Number val = vals.get(t, 0, j, i);
-                                        if (val != null) {
+                                        if (val != null && !Double.isNaN(val.doubleValue())) {
                                             totalVal += val.doubleValue();
                                             totalWeight++;
                                         }
