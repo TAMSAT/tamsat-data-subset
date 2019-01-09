@@ -264,13 +264,14 @@ public class SubsetJob implements Callable<Integer> {
                                         }
                                     }
                                 }
-                                if (!Double.isNaN(totalVal)) {
+                                if (!Double.isNaN(totalVal) && totalWeight > 0) {
                                     line.append(FORMAT_2DP.format(totalVal / totalWeight) + ",");
                                 } else {
                                     /*
-                                     * This shouldn't happen...
-                                     * 
-                                     * If it does, write -999 for missing data
+                                     * If we are averaging over somewhere which
+                                     * is all missing data (i.e. the totalVal is
+                                     * NaN, or more likely, the totalWeight is
+                                     * 0), write -999.
                                      */
                                     line.append("-999,");
                                 }
