@@ -522,7 +522,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
              */
             TamsatRequestParams reqParams = new TamsatRequestParams(req.getParameterMap());
             subsetParams = new SubsetRequestParams(reqParams, countryBounds,
-                    req.getRequestURL().toString());
+                    req.getRequestURL().toString().replace("data", "data-subset/data"));
 
             /*
              * Add the job to the queue
