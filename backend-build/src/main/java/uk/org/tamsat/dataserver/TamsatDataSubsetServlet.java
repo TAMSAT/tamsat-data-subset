@@ -529,8 +529,8 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
              */
             log.debug("Adding job " + subsetParams.getJobId() + " to the queue");
             jobQueue.submit(new SubsetJob(subsetParams, tamsatCatalogue, dataDir, this));
-            submittedJobs.put(subsetParams.getJobId(), subsetParams);
-            saveSubmittedJobList();
+            log.debug("Submitted job " + subsetParams.getJobId() + " to the queue successfully");
+            saveSubmittedJob(subsetParams);
         } catch (Exception e) {
             log.error("Problem parsing parameters and adding job", e);
             throw new ServletException("Problem submitting subset job.", e);
@@ -546,6 +546,13 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             log.error("Problem returning page after job posted", e);
             throw new ServletException("Problem returning page after job posted", e);
         }
+    }
+    
+    private synchronized void saveSubmittedJob(SubsetRequestParams subsetParams) {
+        submittedJobs.put(subsetParams.getJobId(), subsetParams);
+        log.debug("Added job " + subsetParams.getJobId() + " to running list");
+        saveSubmittedJobList();
+        log.debug("Saved submitted job list");
     }
 
     @Override
@@ -674,9 +681,11 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
      * Saves the list of submitted (but not completed) jobs to disk
      */
     private synchronized void saveSubmittedJobList() {
+        log.debug("Saving list of submitted jobs");
         try (FileOutputStream fos = new FileOutputStream(
                 new File(dataDir, SUBMITTED_JOBLIST_FILENAME));
                 ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            log.debug("Got file handle");
             oos.writeObject(submittedJobs);
             log.debug("Running job list written to file");
         } catch (IOException e) {
