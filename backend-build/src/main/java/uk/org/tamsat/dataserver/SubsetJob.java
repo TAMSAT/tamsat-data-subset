@@ -196,7 +196,7 @@ public class SubsetJob implements Callable<Integer> {
                                 if (value instanceof Integer) {
                                     line.append(value + ",");
                                 } else {
-                                    line.append(FORMAT_2DP.format(value));
+                                    line.append(FORMAT_2DP.format(value)+",");
                                 }
                             }
                             w.write(line.substring(0, line.length() - 1) + "\n");
