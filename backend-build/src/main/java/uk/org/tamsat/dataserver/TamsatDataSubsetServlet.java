@@ -43,11 +43,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+import java.util.Vector;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -102,7 +104,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
 
     private static final long serialVersionUID = 1L;
 
-    private Map<String, SubsetRequestParams> submittedJobs = new HashMap<>();
+    private Map<String, SubsetRequestParams> submittedJobs = new Hashtable<>();
     private ExecutorService jobQueue;
     private ScheduledExecutorService cleaner;
 
@@ -111,9 +113,9 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
 
     private File dataDir;
 
-    private Map<String, FinishedJobState> ids2Jobs = new HashMap<>();
-    private Map<JobReference, List<FinishedJobState>> jobRef2Jobs = new HashMap<>();
-    private List<FinishedJobState> finishedJobs = new ArrayList<>();
+    private Map<String, FinishedJobState> ids2Jobs = new Hashtable<>();
+    private Map<JobReference, List<FinishedJobState>> jobRef2Jobs = new Hashtable<>();
+    private List<FinishedJobState> finishedJobs = new Vector<>();
 
     private VelocityEngine velocityEngine;
 
@@ -527,10 +529,12 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             /*
              * Add the job to the queue
              */
-            log.debug("Adding job " + subsetParams.getJobId() + " to the queue");
             jobQueue.submit(new SubsetJob(subsetParams, tamsatCatalogue, dataDir, this));
-            log.debug("Submitted job " + subsetParams.getJobId() + " to the queue successfully");
-            saveSubmittedJob(subsetParams);
+            log.debug("Added job " + subsetParams.getJobId() + " to the queue");
+            submittedJobs.put(subsetParams.getJobId(), subsetParams);
+            log.debug("Added job " + subsetParams.getJobId() + " to list of submitted jobs");
+            saveSubmittedJobList();
+            log.debug("Saved submitted job list");
         } catch (Exception e) {
             log.error("Problem parsing parameters and adding job", e);
             throw new ServletException("Problem submitting subset job.", e);
@@ -548,15 +552,9 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         }
     }
     
-    private synchronized void saveSubmittedJob(SubsetRequestParams subsetParams) {
-        submittedJobs.put(subsetParams.getJobId(), subsetParams);
-        log.debug("Added job " + subsetParams.getJobId() + " to running list");
-        saveSubmittedJobList();
-        log.debug("Saved submitted job list");
-    }
-
     @Override
-    public synchronized void jobFinished(FinishedJobState state) {
+    public void jobFinished(FinishedJobState state) {
+        log.debug("Dealing with completed job: " + state.getId());
         /*
          * Remove job from running job list
          */
@@ -565,17 +563,21 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         if (!state.success()) {
             log.error("Problem completing job " + state.getId(), state.getError());
         }
-        log.debug("Saving completed job " + state.getId());
+        log.debug("Adding completed job to maps/lists " + state.getId());
         addFinishedJob(state);
 
+        log.debug("Saving completed job list after completing " + state.getId());
         saveCompletedJobList();
+        log.debug("Saving submitted job list after completing " + state.getId());
         saveSubmittedJobList();
 
+        log.debug("Sending email about " + state.getId());
         try {
             sendEmail(state.getJobRef(), state.getUrl());
         } catch (MessagingException e) {
             log.error("Problem sending email", e);
         }
+        log.debug("All tasks done following completion of " + state.getId());
     }
 
     private static final String EMAIL_TITLE = "TAMSAT Data Available";
@@ -632,12 +634,12 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         return submittedJobs;
     }
 
-    private synchronized void addFinishedJob(FinishedJobState state) {
+    private void addFinishedJob(FinishedJobState state) {
         /*
          * Add job state to appropriate Maps for easy retrieval
          */
         if (!jobRef2Jobs.containsKey(state.getJobRef())) {
-            jobRef2Jobs.put(state.getJobRef(), new ArrayList<>());
+            jobRef2Jobs.put(state.getJobRef(), new Vector<>());
         }
         jobRef2Jobs.get(state.getJobRef()).add(state);
         ids2Jobs.put(state.getId(), state);
@@ -648,7 +650,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         finishedJobs.add(state);
     }
 
-    private synchronized void deleteFinishedJob(FinishedJobState state) {
+    private void deleteFinishedJob(FinishedJobState state) {
         List<FinishedJobState> list = jobRef2Jobs.get(state.getJobRef());
         if (list != null) {
             list.remove(state);
@@ -666,6 +668,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
      * Saves the list of finished jobs to disk
      */
     private synchronized void saveCompletedJobList() {
+        log.debug("Saving list of completed jobs");
         try (FileOutputStream fos = new FileOutputStream(
                 new File(dataDir, COMPLETED_JOBLIST_FILENAME));
                 ObjectOutputStream oos = new ObjectOutputStream(fos)) {
@@ -675,6 +678,7 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
             log.error(
                     "Problem writing completed job list.  Persistence will not work across restarts");
         }
+        log.debug("Finished saving list of completed jobs");
     }
 
     /**
@@ -685,13 +689,12 @@ public class TamsatDataSubsetServlet extends HttpServlet implements JobFinished,
         try (FileOutputStream fos = new FileOutputStream(
                 new File(dataDir, SUBMITTED_JOBLIST_FILENAME));
                 ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-            log.debug("Got file handle");
             oos.writeObject(submittedJobs);
-            log.debug("Running job list written to file");
         } catch (IOException e) {
             log.error(
                     "Problem writing running job list.  Persistence will not work across restarts",
                     e);
         }
+        log.debug("Finished saving list of submitted jobs");
     }
 }

@@ -102,7 +102,7 @@ public class SubsetJob implements Callable<Integer> {
             }
             GriddedDataset dataset = (GriddedDataset) ds;
 
-            log.debug("Running job " + params.hashCode());
+            log.debug("Running job " + params.getJobId());
             /*
              * Do the subsetting and save the file
              */
@@ -282,7 +282,7 @@ public class SubsetJob implements Callable<Integer> {
                 }
             }
 
-            log.debug("Job " + params.hashCode() + " completed");
+            log.debug("Job " + params.getJobId() + " completed");
 
             FinishedJobState finishedJobState = new FinishedJobState(params, outputFile);
             callback.jobFinished(finishedJobState);
@@ -291,6 +291,7 @@ public class SubsetJob implements Callable<Integer> {
         } catch (Throwable e) {
             log.error("Problem running job", e);
 
+            log.debug("Job " + params.getJobId() + " finished as failure");
             FinishedJobState failedJobState = new FinishedJobState(params, e);
             callback.jobFinished(failedJobState);
 
